@@ -130,4 +130,5 @@ Buenos Aires, Argentina
 
 ---
 
-> “Contratá a personas más inteligentes que vos.” – Filosofía de liderazgo adoptada en LaburAPP, inspirada en Elon Musk y Mark Zuckerberg.
+> “I will only hire someone to work directly for me if I would work for that person.” – Mark Zuckerberg.
+> La filosofía de liderazgo adoptada en LaburAPP, inspirada en Elon Musk y Mark Zuckerberg.
