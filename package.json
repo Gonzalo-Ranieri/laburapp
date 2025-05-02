@@ -61,12 +61,12 @@
     "prisma": "latest",
     "jsonwebtoken": "latest",
     "bcryptjs": "latest",
-    "@neondatabase/serverless": "latest",
-    "@prisma/client": "latest",
     "uuid": "latest",
     "jose": "latest",
     "mercadopago": "latest",
-    "ol": "latest"
+    "ol": "latest",
+    "@prisma/client": "latest",
+    "@neondatabase/serverless": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
