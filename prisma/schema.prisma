@@ -1,0 +1,166 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING") // Used for migrations
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  image         String?
+  phone         String?
+  address       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relaciones
+  clientRequests    ServiceRequest[] @relation("ClientRequests")
+  providerServices  ServiceRequest[] @relation("ProviderServices")
+  reviews           Review[]         @relation("UserReviews")
+  receivedReviews   Review[]         @relation("ReceivedReviews")
+  providerProfile   Provider?
+  locations         ProviderLocation[]
+  payments          Payment[]        @relation("UserPayments")
+  receivedPayments  Payment[]        @relation("ProviderPayments")
+}
+
+model Provider {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio           String?
+  serviceTypeId String
+  serviceType   ServiceType @relation(fields: [serviceTypeId], references: [id])
+  price         String    // Rango de precios (ej: "$", "$$", "$$$")
+  rating        Float     @default(0)
+  reviewCount   Int       @default(0)
+  isAvailable   Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model ServiceType {
+  id          String    @id @default(cuid())
+  name        String
+  icon        String
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relaciones
+  providers   Provider[]
+  requests    ServiceRequest[]
+}
+
+model ServiceRequest {
+  id          String    @id @default(cuid())
+  clientId    String
+  client      User      @relation("ClientRequests", fields: [clientId], references: [id])
+  providerId  String?
+  provider    User?     @relation("ProviderServices", fields: [providerId], references: [id])
+  serviceTypeId String
+  serviceType ServiceType @relation(fields: [serviceTypeId], references: [id])
+  description String
+  address     String
+  latitude    Float?
+  longitude   Float?
+  scheduledDate DateTime
+  status      RequestStatus @default(PENDING)
+  price       Float?
+  images      String[]  // URLs de imágenes
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relaciones
+  review      Review?
+  tracking    ServiceTracking[]
+  payment     Payment?
+}
+
+model Review {
+  id          String    @id @default(cuid())
+  requestId   String    @unique
+  request     ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  userId      String    // Usuario que deja la reseña
+  user        User      @relation("UserReviews", fields: [userId], references: [id])
+  providerId  String    // Usuario que recibe la reseña
+  provider    User      @relation("ReceivedReviews", fields: [providerId], references: [id])
+  rating      Int       // 1-5
+  comment     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model ProviderLocation {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  latitude    Float
+  longitude   Float
+  accuracy    Float?
+  timestamp   DateTime  @default(now())
+}
+
+model ServiceTracking {
+  id          String    @id @default(cuid())
+  requestId   String
+  request     ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  latitude    Float
+  longitude   Float
+  timestamp   DateTime  @default(now())
+  status      TrackingStatus
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  requestId       String        @unique
+  request         ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  userId          String        // Usuario que realiza el pago
+  user            User          @relation("UserPayments", fields: [userId], references: [id])
+  providerId      String        // Usuario que recibe el pago
+  provider        User          @relation("ProviderPayments", fields: [providerId], references: [id])
+  amount          Float
+  currency        String        @default("ARS")
+  status          PaymentStatus @default(PENDING)
+  externalId      String?       // ID de referencia en Mercado Pago
+  preferenceId    String?       // ID de preferencia de Mercado Pago
+  paymentMethod   String?
+  paymentType     String?
+  description     String?
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TrackingStatus {
+  ACCEPTED
+  EN_ROUTE
+  ARRIVED
+  WORKING
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+  CANCELLED
+}
