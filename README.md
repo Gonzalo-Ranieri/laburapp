@@ -128,6 +128,8 @@ Buenos Aires, Argentina
 📱 +54 9 11 4402-2527  
 📸 Instagram: [@gonzaaranieri](https://instagram.com/gonzaaranieri)
 
+TODOS LOS DERECHOS RESERVADOS ® LICENCE
+
 ---
 
 > “I will only hire someone to work directly for me if I would work for that person.” – Mark Zuckerberg.
