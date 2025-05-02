@@ -1,30 +1,133 @@
-# Laburapp
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+# LaburAPP – README Técnico Privado
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/gonzalo-ranieris-projects/v0-laburapp)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/0PYd540RrUX)
+⚠️ **Este proyecto es confidencial. Su acceso está restringido exclusivamente a los programadores reclutados por Gonzalo Lucas Ranieri. Está prohibido compartir, divulgar o reutilizar este código fuera del desarrollo interno.**
 
-## Overview
+---
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+## 🧠 Descripción General
 
-## Deployment
+LaburAPP es una plataforma que conecta a clientes con profesionales de servicios a domicilio. Inspirada en la experiencia de usuario de apps como UberEats o PedidosYa, pero orientada al mercado informal en LATAM, permite contratar plomeros, gasistas, electricistas, constructores, y más, de forma segura, rápida y eficiente.
 
-Your project is live at:
+---
 
-**[https://vercel.com/gonzalo-ranieris-projects/v0-laburapp](https://vercel.com/gonzalo-ranieris-projects/v0-laburapp)**
+## 🎯 Objetivo
 
-## Build your app
+Desarrollar un MVP funcional, sólido y seguro, que permita testear el flujo de contratación, reputación y pagos. El proyecto busca sentar una base firme antes del lanzamiento, anticipándose a posibles competidores.
 
-Continue building your app on:
+---
 
-**[https://v0.dev/chat/projects/0PYd540RrUX](https://v0.dev/chat/projects/0PYd540RrUX)**
+## 🔧 Funcionalidades Principales
 
-## How It Works
+### 1. Registro de Usuarios
+- Tipos de cuenta:
+  - Cliente
+  - Prestador de servicios
+- Validación por email
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+### 2. Gestión de Perfiles
+- Profesionales eligen una categoría (o pueden sugerir una nueva)
+- Configuración de disponibilidad, precios y descripción
+
+### 3. Búsqueda y Filtros
+- Por categoría, precio, reputación, distancia y disponibilidad
+
+### 4. Contratación de Servicios
+- El cliente solicita un servicio viendo reputación, tarifa y ETA
+- Flujo similar a apps de delivery
+
+### 5. Pagos
+- Integración con MercadoPago
+- Pago por adelantado con retención hasta confirmación
+- Opción de pagar en efectivo (con cargo extra al prestador)
+
+### 6. Geolocalización y Seguridad
+- Seguimiento en tiempo real
+- Botón de pánico (llamada automática al 911)
+- Identificación verificable de todas las partes
+
+### 7. Reputación
+- Calificaciones (1.0 a 5.0)
+- Comentarios públicos
+- Sistema de revisión post-servicio
+
+---
+
+## ⚙️ Tecnologías Propuestas
+
+- **Frontend:** React Native + Expo *(por confirmar)*
+- **Backend:** Node.js + Express
+- **Base de datos:** PostgreSQL (con Sequelize ORM)
+- **Autenticación:** JWT + verificación por correo
+- **Pagos:** MercadoPago SDK
+- **Geolocalización:** Google Maps API o Mapbox
+- **Panel Admin:** Panel web para gestión interna
+
+---
+
+## 🛠 Estructura del Proyecto (Propuesta)
+
+```
+/backend
+  /controllers
+  /models
+  /routes
+  /middlewares
+  /config
+
+/frontend
+  /components
+  /screens
+  /services
+  /assets
+
+/docs
+README.md
+.env.example
+```
+
+---
+
+## 📈 Roadmap Técnico
+
+### MVP Inicial
+- Registro/Login
+- Creación de perfiles
+- Contratación de servicios
+- Geolocalización
+- Sistema de calificaciones
+
+### Fase 2
+- Botón de pánico
+- Validación de matrículas para oficios sensibles
+- Soporte para pagos en efectivo
+- Panel de administración
+
+### Fase 3
+- Sistema de referidos
+- Recompensas y fidelización
+- Notificaciones push
+
+---
+
+## 🧪 Testing y Usuarios
+
+Para testeo del MVP, se generarán:
+- **1 usuario prestador:** Electricista con matrícula verificada
+- **1 usuario cliente:** Requiere servicio urgente en zona cercana
+
+---
+
+## 👤 Autor y Contacto
+
+**Gonzalo Lucas Ranieri**  
+Fundador único de LaburAPP  
+Estudiante avanzado de Ingeniería en Sistemas de Información – UTN  
+Buenos Aires, Argentina  
+📧 gonzalolucasranieri@gmail.com  
+📱 +54 9 11 4402-2527  
+📸 Instagram: [@gonzaaranieri](https://instagram.com/gonzaaranieri)
+
+---
+
+> “Contratá a personas más inteligentes que vos.” – Filosofía de liderazgo adoptada en LaburAPP, inspirada en Elon Musk y Mark Zuckerberg.
