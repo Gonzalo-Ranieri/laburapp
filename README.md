@@ -22,7 +22,7 @@ Desarrollar un MVP funcional, sólido y seguro, que permita testear el flujo de 
 ### 1. Registro de Usuarios
 - Tipos de cuenta:
   - Cliente
-  - Prestador de servicios
+  - Proveedor de servicios
 - Validación por email
 
 ### 2. Gestión de Perfiles
