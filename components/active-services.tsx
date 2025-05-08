@@ -5,12 +5,22 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Phone, MessageSquare, MapIcon, Loader2 } from "lucide-react"
+import { Phone, MessageSquare, MapIcon, Loader2, CheckCircle2, XCircle } from "lucide-react"
 import { MapView } from "@/components/map-view"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { LocationTracker } from "@/components/location-tracker"
 import { ServicePayment } from "./service-payment"
 import { PriceSetter } from "./price-setter"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export function ActiveServices() {
   const [showMap, setShowMap] = useState(false)
@@ -20,6 +30,9 @@ export function ActiveServices() {
   const [loading, setLoading] = useState(true)
   const [isProvider, setIsProvider] = useState(false)
   const [providerLocation, setProviderLocation] = useState<any>(null)
+  const [pendingConfirmations, setPendingConfirmations] = useState<any[]>([])
+  const [showConfirmationDialog, setShowConfirmationDialog] = useState(false)
+  const [selectedConfirmation, setSelectedConfirmation] = useState<any>(null)
 
   // Cargar servicios activos e historial
   useEffect(() => {
@@ -54,6 +67,25 @@ export function ActiveServices() {
 
     fetchServices()
   }, [])
+
+  // Cargar confirmaciones pendientes
+  useEffect(() => {
+    async function fetchConfirmations() {
+      if (isProvider) return // Solo clientes reciben confirmaciones
+
+      try {
+        const response = await fetch("/api/confirmations")
+        if (response.ok) {
+          const data = await response.json()
+          setPendingConfirmations(data)
+        }
+      } catch (error) {
+        console.error("Error al cargar confirmaciones:", error)
+      }
+    }
+
+    fetchConfirmations()
+  }, [isProvider])
 
   const handleShowMap = async (service: any) => {
     setSelectedService(service)
@@ -99,6 +131,56 @@ export function ActiveServices() {
   const handlePriceSet = (serviceId: string, price: number) => {
     // Actualizar el precio en la UI
     setActiveServices((prev) => prev.map((service) => (service.id === serviceId ? { ...service, price } : service)))
+  }
+
+  const handleConfirmTask = async (confirmed: boolean) => {
+    if (!selectedConfirmation) return
+
+    try {
+      const response = await fetch(`/api/confirmations/${selectedConfirmation.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ confirmed }),
+      })
+
+      if (response.ok) {
+        // Actualizar las confirmaciones pendientes
+        setPendingConfirmations((prev) => prev.filter((conf) => conf.id !== selectedConfirmation.id))
+
+        // Actualizar los servicios activos/históricos si es necesario
+        if (confirmed) {
+          // Podrías recargar los datos o marcar localmente
+        }
+      }
+    } catch (error) {
+      console.error("Error al procesar confirmación:", error)
+    } finally {
+      setShowConfirmationDialog(false)
+      setSelectedConfirmation(null)
+    }
+  }
+
+  const handleRequestConfirmation = async (requestId: string) => {
+    try {
+      const response = await fetch("/api/confirmations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ requestId }),
+      })
+
+      if (response.ok) {
+        // Actualizar la interfaz
+        setActiveServices((prev) =>
+          prev.map((service) => (service.id === requestId ? { ...service, status: "COMPLETED" } : service)),
+        )
+      }
+    } catch (error) {
+      console.error("Error al solicitar confirmación:", error)
+    }
   }
 
   // Convertir los datos del proveedor al formato que espera el componente MapView
@@ -229,6 +311,18 @@ export function ActiveServices() {
                   </div>
                 )}
 
+                {isProvider && service.status === "IN_PROGRESS" && (
+                  <div className="mt-4">
+                    <Button
+                      className="w-full bg-emerald-500 hover:bg-emerald-600"
+                      onClick={() => handleRequestConfirmation(service.id)}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Marcar como Completado
+                    </Button>
+                  </div>
+                )}
+
                 <div className="flex space-x-2">
                   <Button variant="outline" className="flex-1">
                     <Phone className="h-4 w-4 mr-2" />
@@ -246,6 +340,57 @@ export function ActiveServices() {
       ) : (
         <div className="text-center py-8 text-gray-500">
           <p>No tienes servicios activos en este momento</p>
+        </div>
+      )}
+
+      {!isProvider && pendingConfirmations.length > 0 && (
+        <div className="space-y-4 mt-6">
+          <h2 className="text-xl font-semibold">Servicios por Confirmar</h2>
+          {pendingConfirmations.map((confirmation) => (
+            <Card key={confirmation.id} className="border-yellow-300 border-2">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <Avatar>
+                      <AvatarImage
+                        src={confirmation.request.provider?.image || "/placeholder.svg"}
+                        alt={confirmation.request.provider?.name}
+                      />
+                      <AvatarFallback>{confirmation.request.provider?.name?.charAt(0) || "P"}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="font-medium">{confirmation.request.provider?.name}</h3>
+                      <p className="text-sm text-gray-500">{confirmation.request.serviceType?.name}</p>
+                    </div>
+                  </div>
+                  <Badge className="bg-yellow-500">Esperando Confirmación</Badge>
+                </div>
+
+                <div className="mb-4 text-sm">
+                  <p>El profesional ha marcado este trabajo como completado.</p>
+                  <p>Tienes hasta {new Date(confirmation.expiresAt).toLocaleDateString()} para confirmar o disputar.</p>
+                  <p>Si no respondes, el pago se liberará automáticamente.</p>
+                </div>
+
+                <div className="flex space-x-2">
+                  <Button
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-600"
+                    onClick={() => {
+                      setSelectedConfirmation(confirmation)
+                      setShowConfirmationDialog(true)
+                    }}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Confirmar Finalización
+                  </Button>
+                  <Button variant="outline" className="flex-1 text-red-500 border-red-500 hover:bg-red-50">
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Disputar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
@@ -316,6 +461,22 @@ export function ActiveServices() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar finalización de servicio</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que el servicio se ha completado satisfactoriamente? Al confirmar, se liberará el pago al
+              profesional.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleConfirmTask(true)}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

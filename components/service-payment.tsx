@@ -70,6 +70,13 @@ export function ServicePayment({ requestId, serviceName, status }: ServicePaymen
             <span>Pago completado</span>
           </div>
         )
+      case "ESCROW":
+        return (
+          <div className="flex items-center text-blue-600">
+            <Clock className="mr-2 h-4 w-4" />
+            <span>Pago en depósito seguro</span>
+          </div>
+        )
       case "PENDING":
         return (
           <div className="flex items-center text-yellow-600">

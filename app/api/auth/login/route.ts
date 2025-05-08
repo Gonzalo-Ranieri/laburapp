@@ -1,58 +1,88 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/db"
-import bcrypt from "bcryptjs"
-import jwt from "jsonwebtoken"
+import { NextResponse } from "next/server"
+import { SignJWT } from "jose"
 
-export async function POST(request: NextRequest) {
+// Usuarios de demostración simplificados
+const demoUsers = [
+  {
+    id: "user-123",
+    name: "Usuario Demo",
+    email: "usuario@test.com",
+    password: "Password123!",
+    isProvider: false,
+  },
+  {
+    id: "provider-123",
+    name: "Proveedor Demo",
+    email: "proveedor@test.com",
+    password: "Password123!",
+    isProvider: true,
+  },
+]
+
+export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { email, password } = body
 
-    // Validación básica
     if (!email || !password) {
       return NextResponse.json({ error: "Email y contraseña son requeridos" }, { status: 400 })
     }
 
-    // Buscar usuario
-    const users = await sql`SELECT * FROM "User" WHERE email = ${email} LIMIT 1`
+    console.log("Intento de inicio de sesión:", email)
 
-    if (users.length === 0) {
+    // Buscar usuario por email (ignorando mayúsculas/minúsculas)
+    const user = demoUsers.find((u) => u.email.toLowerCase() === email.toLowerCase())
+
+    if (!user) {
+      console.log("Usuario no encontrado:", email)
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 })
     }
-
-    const user = users[0]
 
     // Verificar contraseña
-    const passwordMatch = await bcrypt.compare(password, user.password)
-
-    if (!passwordMatch) {
+    if (user.password !== password) {
+      console.log("Contraseña incorrecta para:", email)
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 })
     }
 
-    // Generar token JWT
-    const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET || "default_secret", {
-      expiresIn: "7d",
+    console.log("Inicio de sesión exitoso para:", email, "Es proveedor:", user.isProvider)
+
+    // Crear token JWT
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET || "demo_secret_key_for_preview_environment")
+    const token = await new SignJWT({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      isProvider: user.isProvider,
     })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("30d") // 30 días
+      .sign(secret)
 
-    // Excluir la contraseña de la respuesta
-    const { password: _, ...userWithoutPassword } = user
+    // Determinar URL de redirección
+    const redirectUrl = user.isProvider ? "/provider-dashboard" : "/"
 
-    // Configurar cookie con el token
-    const response = NextResponse.json({ user: userWithoutPassword }, { status: 200 })
-
-    response.cookies.set({
-      name: "token",
-      value: token,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 60 * 60 * 24 * 7, // 7 días
-      path: "/",
+    // Devolver el token en la respuesta para que el cliente lo guarde en localStorage
+    return NextResponse.json({
+      success: true,
+      message: "Inicio de sesión exitoso",
+      token: token, // Incluir el token en la respuesta
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isProvider: user.isProvider,
+      },
+      redirectUrl,
     })
-
-    return response
   } catch (error) {
-    console.error("Error al iniciar sesión:", error)
-    return NextResponse.json({ error: "Error al iniciar sesión" }, { status: 500 })
+    console.error("Error en login:", error)
+    return NextResponse.json(
+      {
+        error: "Error al iniciar sesión",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    )
   }
 }

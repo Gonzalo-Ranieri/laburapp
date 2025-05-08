@@ -41,6 +41,8 @@ export function PaymentHistory({ userId, isProvider = false }: PaymentHistoryPro
     switch (status) {
       case "APPROVED":
         return <Badge className="bg-green-500">Aprobado</Badge>
+      case "ESCROW":
+        return <Badge className="bg-blue-500">En Depósito Seguro</Badge>
       case "PENDING":
         return <Badge className="bg-yellow-500">Pendiente</Badge>
       case "REJECTED":

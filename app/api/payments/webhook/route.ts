@@ -45,11 +45,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Actualizar estado del pago
-    let status: "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED" | "CANCELLED"
+    let status: "PENDING" | "ESCROW" | "APPROVED" | "REJECTED" | "REFUNDED" | "CANCELLED"
 
     switch (paymentInfo.status) {
       case "approved":
-        status = "APPROVED"
+        // Cuando Mercado Pago aprueba el pago, lo ponemos en ESCROW
+        status = "ESCROW"
         break
       case "rejected":
         status = "REJECTED"
@@ -80,12 +81,12 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Si el pago fue aprobado, actualizar el estado de la solicitud
-    if (status === "APPROVED" && payment.request.status !== "COMPLETED") {
+    // Si el pago está en ESCROW, asegurarnos de que el estado de la solicitud sea correcto
+    if (status === "ESCROW" && payment.request.status !== "IN_PROGRESS") {
       await prisma.serviceRequest.update({
         where: { id: payment.requestId },
         data: {
-          status: "COMPLETED",
+          status: "IN_PROGRESS",
           updatedAt: new Date(),
         },
       })

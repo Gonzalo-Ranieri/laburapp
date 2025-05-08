@@ -4,21 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useGeolocation } from "@/hooks/use-geolocation"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
-import { OSM_ATTRIBUTION } from "@/lib/map-config"
 import { MapPopup } from "./map-popup"
-
-// Importaciones de OpenLayers
-import "ol/ol.css"
-import Map from "ol/Map"
-import View from "ol/View"
-import TileLayer from "ol/layer/Tile"
-import OSM from "ol/source/OSM"
-import { fromLonLat, toLonLat } from "ol/proj"
-import Feature from "ol/Feature"
-import Point from "ol/geom/Point"
-import { Vector as VectorLayer } from "ol/layer"
-import { Vector as VectorSource } from "ol/source"
-import { Style, Circle as CircleStyle, Fill, Stroke, Text } from "ol/style"
 
 interface MapViewProps {
   providers?: Array<{
@@ -47,167 +33,66 @@ export function MapView({
   selectedProviderId,
 }: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
-  const map = useRef<Map | null>(null)
-  const vectorSource = useRef<VectorSource | null>(null)
-  const userFeature = useRef<Feature | null>(null)
   const { latitude, longitude, loading, error } = useGeolocation()
-  const [mapLoaded, setMapLoaded] = useState(false)
   const [selectedProvider, setSelectedProvider] = useState<any>(null)
   const [popupPosition, setPopupPosition] = useState<[number, number] | null>(null)
 
-  // Inicializar mapa cuando tenemos coordenadas
+  // Simulación de mapa para desarrollo
   useEffect(() => {
-    if (!mapContainer.current || map.current || !latitude || !longitude) return
+    if (!mapContainer.current || !latitude || !longitude) return
 
-    // Crear capa de vectores para marcadores
-    vectorSource.current = new VectorSource()
-    const vectorLayer = new VectorLayer({
-      source: vectorSource.current,
-    })
+    // Simulación de mapa
+    const mapElement = mapContainer.current
+    mapElement.innerHTML = `
+      <div style="position: relative; width: 100%; height: 100%; background-color: #e5e7eb; overflow: hidden; border-radius: 0.375rem;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+          <p style="margin: 0; font-size: 14px; color: #4b5563;">Mapa simulado</p>
+          <p style="margin: 4px 0 0; font-size: 12px; color: #6b7280;">Lat: ${latitude.toFixed(6)}, Lng: ${longitude.toFixed(6)}</p>
+        </div>
+        ${providers
+          .map(
+            (provider, index) => `
+          <div style="position: absolute; top: ${50 + index * 10}%; left: ${50 + index * 5}%; transform: translate(-50%, -50%);">
+            <div style="width: 24px; height: 24px; border-radius: 50%; background-color: ${selectedProviderId === provider.id ? "#f59e0b" : "#3b82f6"}; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; cursor: pointer;" data-provider-id="${provider.id}">
+              ${provider.name.charAt(0)}
+            </div>
+          </div>
+        `,
+          )
+          .join("")}
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+          <div style="width: 16px; height: 16px; border-radius: 50%; background-color: #10b981; border: 2px solid white;"></div>
+        </div>
+      </div>
+    `
 
-    // Crear mapa
-    const newMap = new Map({
-      target: mapContainer.current,
-      layers: [
-        new TileLayer({
-          source: new OSM({
-            attributions: [OSM_ATTRIBUTION],
-          }),
-        }),
-        vectorLayer,
-      ],
-      view: new View({
-        center: fromLonLat([longitude, latitude]),
-        zoom: 14,
-      }),
-      controls: interactive ? undefined : [],
-      interactions: interactive ? undefined : [],
-    })
-
-    map.current = newMap
-
-    // Añadir marcador del usuario
-    userFeature.current = new Feature({
-      geometry: new Point(fromLonLat([longitude, latitude])),
-      name: "Usuario",
-      type: "user",
-    })
-
-    userFeature.current.setStyle(
-      new Style({
-        image: new CircleStyle({
-          radius: 8,
-          fill: new Fill({ color: "#10b981" }),
-          stroke: new Stroke({ color: "white", width: 2 }),
-        }),
-      }),
-    )
-
-    vectorSource.current.addFeature(userFeature.current)
-
-    // Si es interactivo, permitir seleccionar ubicación
+    // Agregar eventos de clic
     if (interactive && onSelectLocation) {
-      newMap.on("click", (e) => {
-        const coordinates = toLonLat(e.coordinate)
-        onSelectLocation(coordinates[1], coordinates[0])
-
-        if (userFeature.current) {
-          userFeature.current.getGeometry()?.setCoordinates(e.coordinate)
-        }
+      mapElement.addEventListener("click", (e) => {
+        // Simular selección de ubicación
+        const randomOffset = Math.random() * 0.01 - 0.005
+        onSelectLocation(latitude + randomOffset, longitude + randomOffset)
       })
     }
 
-    // Manejar clics en marcadores
-    newMap.on("click", (e) => {
-      newMap.forEachFeatureAtPixel(e.pixel, (feature) => {
-        if (feature.get("type") === "provider") {
-          const provider = providers.find((p) => p.id === feature.get("id"))
-          if (provider) {
-            setSelectedProvider(provider)
-            setPopupPosition(e.pixel)
-          }
-          return true
+    // Agregar eventos de clic a los marcadores de proveedores
+    const providerMarkers = mapElement.querySelectorAll("[data-provider-id]")
+    providerMarkers.forEach((marker) => {
+      marker.addEventListener("click", (e) => {
+        e.stopPropagation()
+        const providerId = marker.getAttribute("data-provider-id")
+        const provider = providers.find((p) => p.id === providerId)
+        if (provider) {
+          setSelectedProvider(provider)
+          setPopupPosition([e.clientX, e.clientY])
         }
-        return false
       })
     })
-
-    setMapLoaded(true)
 
     return () => {
-      newMap.setTarget(undefined)
-      map.current = null
+      mapElement.innerHTML = ""
     }
-  }, [latitude, longitude, interactive, onSelectLocation, providers])
-
-  // Actualizar posición del usuario cuando cambia
-  useEffect(() => {
-    if (!map.current || !latitude || !longitude || !userFeature.current) return
-
-    const userCoordinates = fromLonLat([longitude, latitude])
-    userFeature.current.getGeometry()?.setCoordinates(userCoordinates)
-
-    // Centrar mapa en la posición del usuario si no hay proveedores seleccionados
-    if (!selectedProviderId) {
-      map.current.getView().setCenter(userCoordinates)
-    }
-  }, [latitude, longitude, selectedProviderId])
-
-  // Añadir marcadores de proveedores
-  useEffect(() => {
-    if (!map.current || !mapLoaded || !showProviders || !vectorSource.current) return
-
-    // Limpiar marcadores de proveedores anteriores
-    const features = vectorSource.current.getFeatures()
-    features.forEach((feature) => {
-      if (feature.get("type") === "provider") {
-        vectorSource.current?.removeFeature(feature)
-      }
-    })
-
-    // Añadir nuevos marcadores
-    providers.forEach((provider) => {
-      const providerFeature = new Feature({
-        geometry: new Point(fromLonLat([provider.longitude, provider.latitude])),
-        name: provider.name,
-        id: provider.id,
-        serviceType: provider.serviceType,
-        type: "provider",
-      })
-
-      const isSelected = selectedProviderId === provider.id
-
-      providerFeature.setStyle(
-        new Style({
-          image: new CircleStyle({
-            radius: 10,
-            fill: new Fill({ color: isSelected ? "#f59e0b" : "#3b82f6" }),
-            stroke: new Stroke({ color: "white", width: 2 }),
-          }),
-          text: new Text({
-            text: provider.name.charAt(0),
-            fill: new Fill({ color: "white" }),
-            font: "bold 12px sans-serif",
-            offsetY: 1,
-          }),
-        }),
-      )
-
-      vectorSource.current?.addFeature(providerFeature)
-    })
-
-    // Si hay un proveedor seleccionado, centrar en él
-    if (selectedProviderId && map.current) {
-      const selectedProvider = providers.find((p) => p.id === selectedProviderId)
-      if (selectedProvider) {
-        map.current.getView().animate({
-          center: fromLonLat([selectedProvider.longitude, selectedProvider.latitude]),
-          zoom: 15,
-          duration: 1000,
-        })
-      }
-    }
-  }, [providers, mapLoaded, showProviders, selectedProviderId])
+  }, [latitude, longitude, providers, interactive, onSelectLocation, selectedProviderId])
 
   if (error) {
     return (

@@ -5,71 +5,72 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Star, MapPin, Clock } from "lucide-react"
-import { ServiceModal } from "./service-modal"
 
 interface ServicesListProps {
   searchQuery: string
+  isDemo?: boolean
 }
 
-interface ServiceType {
-  id: string
-  name: string
-  icon: string
-  description: string | null
-}
+// Datos de demostración para usar cuando no hay autenticación
+const demoServiceTypes = [
+  { id: "1", name: "Plomería", icon: "🔧", description: "Servicios de plomería" },
+  { id: "2", name: "Electricidad", icon: "⚡", description: "Servicios eléctricos" },
+  { id: "3", name: "Carpintería", icon: "🪚", description: "Servicios de carpintería" },
+  { id: "4", name: "Limpieza", icon: "🧹", description: "Servicios de limpieza" },
+]
 
-interface Provider {
-  id: string
-  name: string
-  rating: number
-  reviewCount: number
-  price: string
-  image: string | null
-  serviceName: string
-  icon: string
-  // Simulated data
-  distance: string
-  availability: string
-}
+const demoProviders = [
+  {
+    id: "1",
+    name: "Juan Pérez",
+    rating: 4.8,
+    reviewCount: 120,
+    price: "$1,500 - $2,500",
+    image: null,
+    serviceName: "Plomería",
+    icon: "🔧",
+    distance: "2.3 km",
+    availability: "Disponible ahora",
+  },
+  {
+    id: "2",
+    name: "María González",
+    rating: 4.9,
+    reviewCount: 85,
+    price: "$1,800 - $3,000",
+    image: null,
+    serviceName: "Electricidad",
+    icon: "⚡",
+    distance: "1.5 km",
+    availability: "Disponible en 1h",
+  },
+  {
+    id: "3",
+    name: "Carlos Rodríguez",
+    rating: 4.7,
+    reviewCount: 64,
+    price: "$2,000 - $3,500",
+    image: null,
+    serviceName: "Carpintería",
+    icon: "🪚",
+    distance: "3.1 km",
+    availability: "Disponible ahora",
+  },
+]
 
-export function ServicesList({ searchQuery }: ServicesListProps) {
+export function ServicesList({ searchQuery, isDemo = false }: ServicesListProps) {
   const [selectedProvider, setSelectedProvider] = useState<any>(null)
-  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([])
-  const [providers, setProviders] = useState<Provider[]>([])
+  const [serviceTypes, setServiceTypes] = useState(demoServiceTypes)
+  const [providers, setProviders] = useState(demoProviders)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        // Fetch service types
-        const response = await fetch("/api/services")
-        if (response.ok) {
-          const data = await response.json()
-          setServiceTypes(data)
-        }
+    // Simular carga de datos
+    const timer = setTimeout(() => {
+      setLoading(false)
+    }, 1000)
 
-        // Fetch providers (in a real app, this would be paginated and filtered)
-        const providersResponse = await fetch("/api/providers")
-        if (providersResponse.ok) {
-          const providersData = await providersResponse.json()
-
-          // Add simulated data for UI purposes
-          const enhancedProviders = providersData.map((provider: any) => ({
-            ...provider,
-            distance: `${(Math.random() * 5 + 1).toFixed(1)} km`,
-            availability: Math.random() > 0.5 ? "Disponible ahora" : "Disponible en 1h",
-          }))
-
-          setProviders(enhancedProviders)
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchData()
+    return () => clearTimeout(timer)
   }, [])
 
   // Filter providers based on search query
@@ -140,7 +141,13 @@ export function ServicesList({ searchQuery }: ServicesListProps) {
 
                   <Button
                     className="w-full mt-4"
-                    onClick={() => setSelectedProvider({ ...provider, service: provider.serviceName })}
+                    onClick={() => {
+                      if (isDemo) {
+                        alert("Esta función requiere iniciar sesión. Por favor, inicia sesión para continuar.")
+                      } else {
+                        setSelectedProvider({ ...provider, service: provider.serviceName })
+                      }
+                    }}
                   >
                     Solicitar Servicio
                   </Button>
@@ -155,7 +162,7 @@ export function ServicesList({ searchQuery }: ServicesListProps) {
         </div>
       )}
 
-      {selectedProvider && <ServiceModal provider={selectedProvider} onClose={() => setSelectedProvider(null)} />}
+      {/* Eliminamos el modal de servicio para la versión de demostración */}
     </div>
   )
 }

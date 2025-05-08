@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
         providerId: serviceRequest.providerId,
         amount: serviceRequest.price,
         preferenceId: preference.id,
+        status: "ESCROW", // Cambiado de PENDING a ESCROW
         description: `Pago por servicio de ${serviceRequest.serviceType.name}`,
         metadata: {
           preferenceId: preference.id,

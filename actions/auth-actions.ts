@@ -4,7 +4,7 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import prisma from "@/lib/db"
 import bcrypt from "bcryptjs"
-import jwt from "jsonwebtoken"
+import { SignJWT } from "jose"
 
 export async function register(formData: FormData) {
   const name = formData.get("name") as string
@@ -56,6 +56,9 @@ export async function login(formData: FormData) {
     // Buscar usuario
     const user = await prisma.user.findUnique({
       where: { email },
+      include: {
+        providerProfile: true, // Incluir el perfil de proveedor si existe
+      },
     })
 
     if (!user) {
@@ -69,12 +72,16 @@ export async function login(formData: FormData) {
       return { error: "Credenciales inválidas" }
     }
 
-    if (!passwordMatch) {
-      return { error: "Credenciales inválidas" }
-    }
-
-    // Generar token JWT
-    const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET || "secret", { expiresIn: "7d" })
+    // Generar token JWT con jose
+    const token = await new SignJWT({
+      id: user.id,
+      email: user.email,
+      isProvider: !!user.providerProfile,
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("7d")
+      .sign(new TextEncoder().encode(process.env.JWT_SECRET || "default_secret"))
 
     // Guardar token en cookie
     cookies().set({
@@ -87,7 +94,12 @@ export async function login(formData: FormData) {
       path: "/",
     })
 
-    redirect("/")
+    // Redirigir según el tipo de usuario
+    if (user.providerProfile) {
+      redirect("/provider/dashboard")
+    } else {
+      redirect("/")
+    }
   } catch (error) {
     console.error("Error al iniciar sesión:", error)
     return { error: "Error al iniciar sesión" }

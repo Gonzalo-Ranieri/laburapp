@@ -84,6 +84,7 @@ model ServiceRequest {
   review      Review?
   tracking    ServiceTracking[]
   payment     Payment?
+  confirmation TaskConfirmation?
 }
 
 model Review {
@@ -141,6 +142,19 @@ model Payment {
   updatedAt       DateTime      @updatedAt
 }
 
+model TaskConfirmation {
+  id          String    @id @default(cuid())
+  requestId   String    @unique
+  request     ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestedAt DateTime  @default(now())
+  confirmedAt DateTime?
+  expiresAt   DateTime
+  confirmed   Boolean   @default(false)
+  autoReleased Boolean  @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
 enum RequestStatus {
   PENDING
   ACCEPTED
@@ -159,6 +173,7 @@ enum TrackingStatus {
 
 enum PaymentStatus {
   PENDING
+  ESCROW
   APPROVED
   REJECTED
   REFUNDED
