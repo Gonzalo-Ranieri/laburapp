@@ -49,7 +49,8 @@ export default function SearchPage() {
                 rating: 4.8,
                 reviews: 24,
                 price: "$50/hora",
-                distance: "2.3 km",
+                distance: 2.3, // Cambiado a número
+                distanceUnit: "km", // Añadida unidad separada
                 image: "/placeholder.svg?height=80&width=80",
               }}
             />
@@ -61,7 +62,8 @@ export default function SearchPage() {
                 rating: 4.5,
                 reviews: 18,
                 price: "$45/hora",
-                distance: "3.1 km",
+                distance: 3.1, // Cambiado a número
+                distanceUnit: "km", // Añadida unidad separada
                 image: "/placeholder.svg?height=80&width=80",
               }}
             />
@@ -73,7 +75,8 @@ export default function SearchPage() {
                 rating: 4.9,
                 reviews: 32,
                 price: "$55/hora",
-                distance: "1.8 km",
+                distance: 1.8, // Cambiado a número
+                distanceUnit: "km", // Añadida unidad separada
                 image: "/placeholder.svg?height=80&width=80",
               }}
             />
