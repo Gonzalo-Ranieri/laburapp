@@ -1,7 +1,7 @@
-import { SearchBar } from "@/components/search/search-bar"
 import { FilterSidebar } from "@/components/filter-sidebar"
 import { ProviderCard } from "@/components/provider-card"
 import { DynamicTag } from "@/components/dynamic-tag"
+import { SearchContainer } from "@/components/search/search-container"
 
 /**
  * Página de búsqueda de servicios
@@ -15,7 +15,7 @@ export default function SearchPage() {
       {/* Encabezado de la página */}
       <section>
         <h1 className="text-2xl font-bold mb-4">Buscar Servicios</h1>
-        <SearchBar onSearch={(query) => console.log("Búsqueda:", query)} />
+        <SearchContainer />
       </section>
 
       {/* Etiquetas dinámicas para búsquedas rápidas */}

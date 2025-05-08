@@ -1,26 +1,25 @@
-import type { DynamicTag as DynamicTagType } from "@/types/categories"
-import * as Icons from "lucide-react"
-import type { LucideIcon } from "lucide-react"
+"use client"
+
+import { useRouter } from "next/navigation"
 
 interface DynamicTagProps {
-  tag: DynamicTagType
+  tag: string
+  className?: string
 }
 
-export function DynamicTag({ tag }: DynamicTagProps) {
-  const IconComponent = tag.icon
-    ? (Icons as Record<string, LucideIcon>)[tag.icon.charAt(0).toUpperCase() + tag.icon.slice(1)]
-    : undefined
+export function DynamicTag({ tag, className = "" }: DynamicTagProps) {
+  const router = useRouter()
+
+  const handleClick = () => {
+    router.push(`/search?q=${encodeURIComponent(tag)}`)
+  }
 
   return (
-    <div
-      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-      style={{
-        backgroundColor: tag.backgroundColor,
-        color: tag.textColor,
-      }}
+    <button
+      onClick={handleClick}
+      className={`px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-sm font-medium transition-colors ${className}`}
     >
-      {IconComponent && <IconComponent className="h-3 w-3 mr-1" />}
-      {tag.name}
-    </div>
+      {tag}
+    </button>
   )
 }
