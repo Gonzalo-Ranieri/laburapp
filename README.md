@@ -60,7 +60,7 @@ Desarrollar un MVP funcional, sólido y seguro, que permita testear el flujo de 
 - **Base de datos:** PostgreSQL (con Sequelize ORM)
 - **Autenticación:** JWT + verificación por correo
 - **Pagos:** MercadoPago SDK
-- **Geolocalización:** Google Maps API o Mapbox
+- **Geolocalización:** OpenLayers
 - **Panel Admin:** Panel web para gestión interna
 
 ---
