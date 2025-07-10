@@ -11,7 +11,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, Loader2, CheckCircle, Mail, Lock, User, Briefcase } from "lucide-react"
 import { saveToken } from "@/lib/client-auth-utils"
-import { Logo } from "@/components/ui/logo"
 import Link from "next/link"
 
 export function LoginForm() {
@@ -95,12 +94,12 @@ export function LoginForm() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <div className="flex-1 flex flex-col sm:flex-row">
+    <div className="min-h-screen flex flex-col p-4 md:p-0">
+      <div className="flex-1 flex flex-col md:flex-row">
         {/* Panel izquierdo - Solo visible en pantallas medianas y grandes */}
-        <div className="hidden sm:flex sm:w-1/2 bg-primary/10 p-8 flex-col justify-between">
+        <div className="hidden md:flex md:w-1/2 bg-primary/10 p-8 flex-col justify-between">
           <div>
-            <Logo size="lg" className="mb-8" />
+            <div className="text-3xl font-bold text-primary mb-2">LaburApp</div>
             <h1 className="text-3xl font-bold mb-4">Bienvenido de nuevo</h1>
             <p className="text-muted-foreground mb-8">Inicia sesión para acceder a todos los servicios de LaburApp.</p>
           </div>
@@ -122,21 +121,21 @@ export function LoginForm() {
         </div>
 
         {/* Panel derecho - Formulario de login */}
-        <div className="w-full sm:w-1/2 p-4 sm:p-8 flex items-center justify-center">
-          <div className="w-full max-w-md">
+        <div className="w-full md:w-1/2 flex items-center justify-center py-8">
+          <div className="w-full max-w-md px-4">
             {/* Logo solo visible en móviles */}
-            <div className="sm:hidden flex justify-center mb-8">
-              <Logo size="lg" />
+            <div className="md:hidden flex justify-center mb-8">
+              <div className="text-3xl font-bold text-primary">LaburApp</div>
             </div>
 
-            <Card className="border-none shadow-lg animate-fade-in">
-              <CardHeader className="space-y-1">
+            <Card className="border shadow-lg w-full">
+              <CardHeader className="space-y-1 pb-4">
                 <CardTitle className="text-2xl font-bold">Iniciar sesión</CardTitle>
                 <CardDescription>Ingresa tus credenciales para acceder a tu cuenta</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4 pb-4">
                 {error && (
-                  <Alert variant="destructive" className="mb-4 animate-slide-in-up">
+                  <Alert variant="destructive" className="mb-4">
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Error</AlertTitle>
                     <AlertDescription>{error}</AlertDescription>
@@ -144,7 +143,7 @@ export function LoginForm() {
                 )}
 
                 {success && (
-                  <Alert className="mb-4 bg-green-50 border-green-200 animate-slide-in-up">
+                  <Alert className="mb-4 bg-green-50 border-green-200">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <AlertTitle className="text-green-800">¡Inicio de sesión exitoso!</AlertTitle>
                     <AlertDescription className="text-green-700">Redirigiendo...</AlertDescription>
@@ -164,7 +163,7 @@ export function LoginForm() {
                         placeholder="tu@email.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="pl-10 focus-ring"
+                        className="pl-10"
                         required
                         disabled={isLoading || success}
                       />
@@ -186,13 +185,13 @@ export function LoginForm() {
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="pl-10 focus-ring"
+                        className="pl-10"
                         required
                         disabled={isLoading || success}
                       />
                     </div>
                   </div>
-                  <Button type="submit" className="w-full focus-ring" disabled={isLoading || success}>
+                  <Button type="submit" className="w-full" disabled={isLoading || success}>
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -221,23 +220,23 @@ export function LoginForm() {
                 <div className="grid grid-cols-2 gap-4">
                   <Button
                     variant="outline"
-                    className="focus-ring"
                     onClick={() => fillDemoCredentials("user")}
                     type="button"
                     disabled={isLoading || success}
+                    className="flex items-center justify-center"
                   >
                     <User className="mr-2 h-4 w-4" />
-                    Usuario
+                    <span>Usuario</span>
                   </Button>
                   <Button
                     variant="outline"
-                    className="focus-ring"
                     onClick={() => fillDemoCredentials("provider")}
                     type="button"
                     disabled={isLoading || success}
+                    className="flex items-center justify-center"
                   >
                     <Briefcase className="mr-2 h-4 w-4" />
-                    Proveedor
+                    <span>Proveedor</span>
                   </Button>
                 </div>
               </CardContent>

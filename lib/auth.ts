@@ -3,6 +3,22 @@ import type { cookies } from "next/headers"
 import { sql } from "./db"
 import { jwtVerify } from "jose"
 
+// Nueva función verifyToken que falta para el despliegue
+export async function verifyToken(token: string) {
+  if (!token) {
+    return null
+  }
+
+  try {
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET || "demo_secret_key_for_preview_environment")
+    const { payload } = await jwtVerify(token, secret)
+    return payload
+  } catch (error) {
+    console.error("Error al verificar token:", error)
+    return null
+  }
+}
+
 // Función para obtener el usuario a partir del token JWT
 export async function getUserFromToken(request: NextRequest | Request) {
   let token: string | undefined

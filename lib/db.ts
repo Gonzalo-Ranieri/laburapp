@@ -4,14 +4,17 @@ import { Pool } from "@neondatabase/serverless"
 // Configurar neon para usar el polyfill de fetch
 neonConfig.fetchConnectionCache = true
 
+// Usar la variable de entorno correcta
+const sqlClient = neon(process.env.DATABASE_URL || process.env.POSTGRES_URL || "")
+
 // Verificar que la URL de la base de datos esté definida
-const databaseUrl = process.env.DATABASE_URL
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
 if (!databaseUrl) {
-  console.error("DATABASE_URL no está definida en las variables de entorno")
+  console.error("DATABASE_URL o POSTGRES_URL no están definidas en las variables de entorno")
 }
 
 // Crear cliente SQL
-export const sql = neon(databaseUrl || "")
+export const sql = sqlClient
 
 // Crear pool de conexiones para consultas más complejas
 let pool: Pool | null = null
