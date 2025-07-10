@@ -216,6 +216,7 @@ export function ProviderReviews({ providerId }: { providerId: string }) {
                           className={`h-4 w-4 ${i < review.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"}`}
                         />
                       ))}
+                      <span className="ml-2 font-medium">{review.rating.toFixed(1)}</span>
                       <Badge variant="outline" className="ml-2 text-xs">
                         {review.service_type}
                       </Badge>

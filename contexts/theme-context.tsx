@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { ThemeProvider as NextThemesProvider } from "next-themes"
+import type { ThemeProviderProps } from "next-themes"
 
 type Theme = "light" | "dark"
 interface ThemeContextValue {
@@ -10,7 +12,7 @@ interface ThemeContextValue {
 
 const ThemeContext = React.createContext<ThemeContextValue | undefined>(undefined)
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
   const [theme, setTheme] = React.useState<Theme>(() => {
     if (typeof window === "undefined") return "light"
     return (localStorage.getItem("laburapp-theme") as Theme) ?? "light"
@@ -31,7 +33,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle("dark", theme === "dark")
   }, [theme])
 
-  return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>
+  return (
+    <NextThemesProvider {...props}>
+      <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>
+    </NextThemesProvider>
+  )
 }
 
 /* optional convenience hook */
