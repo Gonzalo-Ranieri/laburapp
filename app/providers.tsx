@@ -1,8 +1,17 @@
 "use client"
 
-import { AuthProvider } from "@/contexts/auth-context"
-import type { ReactNode } from "react"
+import type React from "react"
 
-export function Providers({ children }: { children: ReactNode }) {
-  return <AuthProvider>{children}</AuthProvider>
+import { ThemeProvider } from "@/contexts/theme-context"
+import { QueryClientProvider } from "@/contexts/query-client-context"
+import { AuthProvider } from "@/contexts/auth-context"
+
+export default function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <QueryClientProvider>
+        <ThemeProvider>{children}</ThemeProvider>
+      </QueryClientProvider>
+    </AuthProvider>
+  )
 }
