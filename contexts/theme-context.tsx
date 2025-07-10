@@ -11,26 +11,30 @@ interface ThemeContextValue {
 const ThemeContext = React.createContext<ThemeContextValue | undefined>(undefined)
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = React.useState<Theme>("light")
+  const [theme, setTheme] = React.useState<Theme>(() => {
+    if (typeof window === "undefined") return "light"
+    return (localStorage.getItem("laburapp-theme") as Theme) ?? "light"
+  })
 
-  React.useEffect(() => {
-    // Persist to localStorage
-    const stored = typeof window !== "undefined" && localStorage.getItem("theme")
-    if (stored === "light" || stored === "dark") setTheme(stored)
-  }, [])
+  const toggleTheme = () =>
+    setTheme((prev) => {
+      const next = prev === "light" ? "dark" : "light"
+      if (typeof window !== "undefined") {
+        localStorage.setItem("laburapp-theme", next)
+        document.documentElement.classList.toggle("dark", next === "dark")
+      }
+      return next
+    })
 
+  /* keep <html> in sync on first paint (client) */
   React.useEffect(() => {
-    if (typeof document !== "undefined") {
-      document.documentElement.classList.toggle("dark", theme === "dark")
-      localStorage.setItem("theme", theme)
-    }
+    document.documentElement.classList.toggle("dark", theme === "dark")
   }, [theme])
-
-  const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"))
 
   return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>
 }
 
+/* optional convenience hook */
 export function useTheme() {
   const ctx = React.useContext(ThemeContext)
   if (!ctx) throw new Error("useTheme must be used inside ThemeProvider")

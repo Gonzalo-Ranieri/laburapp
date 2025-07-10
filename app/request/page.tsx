@@ -1,11 +1,11 @@
-"use client"
+export const dynamic = "force-dynamic" // ← stop static prerender
 
-export const dynamic = "force-dynamic"
-
-export default function RequestPage() {
+export default function RequestServicePage() {
+  /* Replace with the real request-service form component */
   return (
-    <main className="flex min-h-screen items-center justify-center">
-      <h1 className="text-2xl font-semibold">Página de solicitud de servicio (en construcción)</h1>
-    </main>
+    <section className="container mx-auto py-10">
+      <h1 className="mb-4 text-2xl font-semibold">Solicitar un servicio</h1>
+      <p>Formulario de solicitud de servicio (pendiente de implementación).</p>
+    </section>
   )
 }
