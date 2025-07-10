@@ -15,6 +15,8 @@ import { LocationTracker } from "@/components/location-tracker"
 import { ServicePayment } from "@/components/service-payment"
 import { PriceSetter } from "@/components/price-setter"
 
+export const dynamic = "force-dynamic"
+
 /**
  * Página de servicios activos
  *
@@ -252,11 +254,11 @@ export default function ActiveServicesPage() {
                       )}
 
                       <div className="flex space-x-2">
-                        <Button variant="outline" className="flex-1">
+                        <Button variant="outline" className="flex-1 bg-transparent">
                           <Phone className="h-4 w-4 mr-2" />
                           Llamar
                         </Button>
-                        <Button variant="outline" className="flex-1">
+                        <Button variant="outline" className="flex-1 bg-transparent">
                           <MessageSquare className="h-4 w-4 mr-2" />
                           Mensaje
                         </Button>
