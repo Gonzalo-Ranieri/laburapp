@@ -46,6 +46,33 @@ model Provider {
   isAvailable   Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  
+  // Relación con servicios específicos
+  services      ProviderService[]
+}
+
+model ProviderService {
+  id            String    @id @default(cuid())
+  providerId    String
+  provider      Provider  @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  name          String
+  description   String
+  price         Float
+  priceType     PriceType @default(FIXED)
+  categoryId    String
+  category      ServiceType @relation(fields: [categoryId], references: [id])
+  subcategory   String?
+  duration      Int?      // duración en minutos
+  isActive      Boolean   @default(true)
+  images        String[]
+  tags          String[]
+  requirements  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@index([providerId])
+  @@index([categoryId])
+  @@index([isActive])
 }
 
 model ServiceType {
@@ -59,6 +86,7 @@ model ServiceType {
   // Relaciones
   providers   Provider[]
   requests    ServiceRequest[]
+  providerServices ProviderService[]
 }
 
 model ServiceRequest {
@@ -178,4 +206,10 @@ enum PaymentStatus {
   REJECTED
   REFUNDED
   CANCELLED
+}
+
+enum PriceType {
+  FIXED
+  HOURLY
+  NEGOTIABLE
 }

@@ -1,0 +1,401 @@
+// Laburapp Database Schema
+// Database Markup Language (DBML) v3.0
+
+Project Laburapp {
+  database_type: 'PostgreSQL'
+  Note: 'Sistema de servicios bajo demanda - Base de datos relacional completa'
+}
+
+// ===== TABLAS PRINCIPALES =====
+
+Table users {
+  id varchar [pk, note: 'CUID primary key']
+  name varchar [not null]
+  email varchar [unique, not null]
+  password varchar [not null]
+  image varchar [null]
+  phone varchar [null]
+  address varchar [null]
+  is_online boolean [default: false]
+  last_seen timestamp [null]
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  
+  Note: 'Tabla central de usuarios del sistema'
+}
+
+Table providers {
+  id varchar [pk, note: 'CUID primary key']
+  user_id varchar [ref: > users.id, unique, not null]
+  bio text [null]
+  service_type_id varchar [ref: > service_types.id, not null]
+  price varchar [not null, note: 'Rango: $, $$, $$$']
+  rating decimal(3,2) [default: 0.0]
+  review_count integer [default: 0]
+  is_available boolean [default: true]
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  
+  Note: 'Perfiles extendidos para proveedores de servicios'
+}
+
+Table service_types {
+  id varchar [pk, note: 'CUID primary key']
+  name varchar [not null]
+  icon varchar [not null]
+  description text [null]
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  
+  Note: 'Categorías de servicios disponibles'
+}
+
+Table service_requests {
+  id varchar [pk, note: 'CUID primary key']
+  client_id varchar [ref: > users.id, not null]
+  provider_id varchar [ref: > users.id, null]
+  service_type_id varchar [ref: > service_types.id, not null]
+  description text [not null]
+  address varchar [not null]
+  latitude decimal(10,8) [null]
+  longitude decimal(11,8) [null]
+  scheduled_date timestamp [not null]
+  status request_status [default: 'PENDING']
+  price decimal(10,2) [null]
+  images text[] [null, note: 'Array de URLs de imágenes']
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  
+  Note: 'Solicitudes de servicios entre clientes y proveedores'
+}
+
+// ===== SISTEMA DE RESEÑAS =====
+
+Table reviews {
+  id varchar [pk, note: 'CUID primary key']
+  request_id varchar [ref: - service_requests.id, unique, not null]
+  user_id varchar [ref: > users.id, not null, note: 'Usuario que deja la reseña']
+  provider_id varchar [ref: > users.id, not null, note: 'Usuario que recibe la reseña']
+  rating integer [not null, note: 'Escala 1-5']
+  comment text [null]
+  images text[] [null, note: 'Array de URLs de imágenes']
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  
+  Note: 'Sistema de calificaciones y comentarios'
+}
+
+Table review_helpful {
+  id varchar [pk, note: 'CUID primary key']
+  review_id varchar [ref: > reviews.id, not null]
+  user_id varchar [ref: > users.id, not null]
+  created_at timestamp [default: `now()`, not null]
+  
+  indexes {
+    (review_id, user_id) [unique]
+  }
+  
+  Note: 'Votos de utilidad en reseñas'
+}
+
+Table review_reports {
+  id varchar [pk, note: 'CUID primary key']
+  review_id varchar [ref: > reviews.id, not null]
+  user_id varchar [ref: > users.id, not null]
+  reason varchar [not null]
+  status report_status [default: 'PENDING']
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  
+  Note: 'Sistema de reportes de contenido inapropiado'
+}
+
+Table review_responses {
+  id varchar [pk, note: 'CUID primary key']
+  review_id varchar [ref: - reviews.id, not null]
+  user_id varchar [ref: > users.id, not null, note: 'Proveedor que responde']
+  content text [not null]
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  
+  Note: 'Respuestas de proveedores a reseñas'
+}
+
+// ===== GEOLOCALIZACIÓN =====
+
+Table provider_locations {
+  id varchar [pk, note: 'CUID primary key']
+  user_id varchar [ref: > users.id, not null]
+  latitude decimal(10,8) [not null]
+  longitude decimal(11,8) [not null]
+  accuracy decimal(8,2) [null]
+  timestamp timestamp [default: `now()`, not null]
+  
+  Note: 'Ubicaciones de proveedores en tiempo real'
+}
+
+Table service_tracking {
+  id varchar [pk, note: 'CUID primary key']
+  request_id varchar [ref: > service_requests.id, not null]
+  latitude decimal(10,8) [not null]
+  longitude decimal(11,8) [not null]
+  timestamp timestamp [default: `now()`, not null]
+  status tracking_status [not null]
+  
+  Note: 'Seguimiento GPS de servicios activos'
+}
+
+// ===== SISTEMA DE PAGOS =====
+
+Table payments {
+  id varchar [pk, note: 'CUID primary key']
+  request_id varchar [ref: - service_requests.id, unique, not null]
+  user_id varchar [ref: > users.id, not null, note: 'Usuario que paga']
+  provider_id varchar [ref: > users.id, not null, note: 'Usuario que recibe']
+  amount decimal(10,2) [not null]
+  currency varchar [default: 'ARS', not null]
+  status payment_status [default: 'PENDING']
+  external_id varchar [null, note: 'ID en Mercado Pago']
+  preference_id varchar [null, note: 'Preference ID de MP']
+  payment_method varchar [null]
+  payment_type varchar [null]
+  description text [null]
+  metadata jsonb [null]
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  
+  Note: 'Transacciones y pagos con Mercado Pago'
+}
+
+Table task_confirmations {
+  id varchar [pk, note: 'CUID primary key']
+  request_id varchar [ref: - service_requests.id, unique, not null]
+  requested_at timestamp [default: `now()`, not null]
+  confirmed_at timestamp [null]
+  expires_at timestamp [not null]
+  confirmed boolean [default: false]
+  auto_released boolean [default: false]
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  
+  Note: 'Sistema de confirmación y liberación de pagos'
+}
+
+// ===== AUTENTICACIÓN =====
+
+Table sessions {
+  id varchar [pk, note: 'CUID primary key']
+  user_id varchar [ref: > users.id, not null]
+  expires_at timestamp [not null]
+  created_at timestamp [default: `now()`, not null]
+  
+  Note: 'Sesiones de autenticación de usuarios'
+}
+
+// ===== SISTEMA DE CHAT =====
+
+Table conversations {
+  id varchar [pk, note: 'CUID primary key']
+  type conversation_type [default: 'DIRECT']
+  title varchar [null]
+  last_activity timestamp [default: `now()`, not null]
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  
+  Note: 'Conversaciones entre usuarios'
+}
+
+Table conversation_participants {
+  id varchar [pk, note: 'CUID primary key']
+  conversation_id varchar [ref: > conversations.id, not null]
+  user_id varchar [ref: > users.id, not null]
+  role participant_role [default: 'MEMBER']
+  joined_at timestamp [default: `now()`, not null]
+  
+  indexes {
+    (conversation_id, user_id) [unique]
+  }
+  
+  Note: 'Participantes en conversaciones'
+}
+
+Table messages {
+  id varchar [pk, note: 'CUID primary key']
+  conversation_id varchar [ref: > conversations.id, not null]
+  sender_id varchar [ref: > users.id, not null]
+  content text [not null]
+  attachments text[] [null, note: 'URLs de archivos adjuntos']
+  read_by text[] [null, note: 'IDs de usuarios que leyeron']
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  
+  Note: 'Mensajes individuales en conversaciones'
+}
+
+// ===== SISTEMA DE NOTIFICACIONES =====
+
+Table notifications {
+  id varchar [pk, note: 'CUID primary key']
+  user_id varchar [ref: > users.id, not null]
+  type notification_type [not null]
+  title varchar [not null]
+  message text [not null]
+  data jsonb [null, note: 'Datos adicionales en JSON']
+  read boolean [default: false]
+  read_at timestamp [null]
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  
+  Note: 'Notificaciones del sistema'
+}
+
+Table notification_preferences {
+  id varchar [pk, note: 'CUID primary key']
+  user_id varchar [ref: > users.id, not null]
+  type notification_type [not null]
+  email boolean [default: true]
+  push boolean [default: true]
+  sms boolean [default: false]
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  
+  indexes {
+    (user_id, type) [unique]
+  }
+  
+  Note: 'Preferencias de notificación por usuario'
+}
+
+Table push_tokens {
+  id varchar [pk, note: 'CUID primary key']
+  user_id varchar [ref: > users.id, not null]
+  token varchar [unique, not null]
+  platform varchar [not null, note: 'ios, android, web']
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  
+  Note: 'Tokens para notificaciones push'
+}
+
+// ===== ENUMS =====
+
+Enum request_status {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+Enum tracking_status {
+  ACCEPTED
+  EN_ROUTE
+  ARRIVED
+  WORKING
+  COMPLETED
+}
+
+Enum payment_status {
+  PENDING
+  ESCROW
+  APPROVED
+  REJECTED
+  REFUNDED
+  CANCELLED
+}
+
+Enum report_status {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+Enum conversation_type {
+  DIRECT
+  GROUP
+  SUPPORT
+}
+
+Enum participant_role {
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+Enum notification_type {
+  SERVICE_REQUEST
+  SERVICE_ACCEPTED
+  SERVICE_COMPLETED
+  PAYMENT_RECEIVED
+  REVIEW_RECEIVED
+  MESSAGE_RECEIVED
+  SYSTEM_UPDATE
+}
+
+// ===== ÍNDICES PARA PERFORMANCE =====
+
+Table users {
+  indexes {
+    email [unique]
+    (is_online, last_seen)
+    created_at
+  }
+}
+
+Table service_requests {
+  indexes {
+    client_id
+    provider_id
+    service_type_id
+    status
+    (latitude, longitude) [name: 'location_idx']
+    scheduled_date
+    created_at
+  }
+}
+
+Table reviews {
+  indexes {
+    user_id
+    provider_id
+    rating
+    created_at
+  }
+}
+
+Table provider_locations {
+  indexes {
+    user_id
+    (latitude, longitude) [name: 'provider_location_idx']
+    timestamp
+  }
+}
+
+Table payments {
+  indexes {
+    user_id
+    provider_id
+    status
+    external_id
+    created_at
+  }
+}
+
+Table notifications {
+  indexes {
+    user_id
+    (user_id, read) [name: 'user_unread_idx']
+    type
+    created_at
+  }
+}
+
+Table messages {
+  indexes {
+    conversation_id
+    sender_id
+    created_at
+  }
+}

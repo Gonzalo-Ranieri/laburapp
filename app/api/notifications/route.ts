@@ -1,178 +1,158 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/db"
-import { getUserFromToken } from "@/lib/auth"
-import { sendPushNotification, sendEmailNotification } from "@/lib/notification-service"
+import { PrismaClient } from "@prisma/client"
+import { getUserFromRequest } from "@/lib/auth"
+
+const prisma = new PrismaClient()
+
+export const dynamic = "force-dynamic"
 
 // GET: Obtener notificaciones del usuario
 export async function GET(request: NextRequest) {
   try {
-    const user = await getUserFromToken(request)
+    const user = await getUserFromRequest(request)
+
     if (!user) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    const { searchParams } = new URL(request.url)
-    const limit = Number.parseInt(searchParams.get("limit") || "20")
-    const offset = Number.parseInt(searchParams.get("offset") || "0")
-    const type = searchParams.get("type")
-    const unreadOnly = searchParams.get("unreadOnly") === "true"
+    const url = new URL(request.url)
+    const page = Number.parseInt(url.searchParams.get("page") || "1")
+    const limit = Number.parseInt(url.searchParams.get("limit") || "20")
+    const unreadOnly = url.searchParams.get("unreadOnly") === "true"
+    const type = url.searchParams.get("type") || ""
 
-    let query = `
-      SELECT id, type, title, message, data, read, "readAt", "createdAt"
-      FROM "Notification"
-      WHERE "userId" = $1
-    `
+    const skip = (page - 1) * limit
 
-    const params: any[] = [user.id]
-
-    if (type) {
-      query += ` AND type = $${params.length + 1}`
-      params.push(type)
-    }
+    // Construir filtros
+    const where: any = { userId: user.id }
 
     if (unreadOnly) {
-      query += ` AND read = false`
+      where.readAt = null
     }
-
-    query += ` ORDER BY "createdAt" DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
-    params.push(limit, offset)
-
-    const notifications = await db.executeQuery(query, params)
-
-    // Obtener conteo total
-    let countQuery = `
-      SELECT COUNT(*) as total, COUNT(CASE WHEN read = false THEN 1 END) as unread
-      FROM "Notification"
-      WHERE "userId" = $1
-    `
-
-    const countParams: any[] = [user.id]
 
     if (type) {
-      countQuery += ` AND type = $${countParams.length + 1}`
-      countParams.push(type)
+      where.type = type
     }
 
-    const countResult = await db.executeQuery(countQuery, countParams)
-    const { total, unread } = countResult[0]
+    // Obtener notificaciones
+    const [notifications, total, unreadCount] = await Promise.all([
+      prisma.notification.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.notification.count({ where }),
+      prisma.notification.count({
+        where: { userId: user.id, readAt: null },
+      }),
+    ])
 
     return NextResponse.json({
       notifications,
       pagination: {
-        total: Number.parseInt(total),
-        unread: Number.parseInt(unread),
+        page,
         limit,
-        offset,
-        pages: Math.ceil(Number.parseInt(total) / limit),
+        total,
+        pages: Math.ceil(total / limit),
       },
+      unreadCount,
     })
   } catch (error) {
-    console.error("Error al obtener notificaciones:", error)
-    return NextResponse.json({ error: "Error al obtener notificaciones" }, { status: 500 })
+    console.error("Error obteniendo notificaciones:", error)
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }
 
-// POST: Crear una nueva notificación
+// POST: Crear notificación (sistema interno)
 export async function POST(request: NextRequest) {
   try {
-    const user = await getUserFromToken(request)
-    if (!user || !user.isAdmin) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
     const body = await request.json()
-    const { userId, type, title, message, data = {}, sendPush = true, sendEmail = false } = body
+    const { userId, type, title, message, data = {}, priority = "NORMAL" } = body
 
+    // Validaciones
     if (!userId || !type || !title || !message) {
-      return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 })
+      return NextResponse.json({ error: "Datos requeridos faltantes" }, { status: 400 })
     }
 
-    // Crear notificación en la base de datos
-    const insertQuery = `
-      INSERT INTO "Notification" ("id", "userId", "type", "title", "message", "data")
-      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)
-      RETURNING *
-    `
+    // Verificar que el usuario existe
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    })
 
-    const notification = await db.executeQuery(insertQuery, [userId, type, title, message, data])
+    if (!user) {
+      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 })
+    }
 
-    // Obtener preferencias del usuario
-    const preferencesQuery = `
-      SELECT email, push, sms
-      FROM "NotificationPreference"
-      WHERE "userId" = $1 AND type = $2
-    `
-
-    const preferences = await db.executeQuery(preferencesQuery, [userId, type])
-    const userPrefs = preferences[0] || { email: false, push: true, sms: false }
-
-    // Enviar notificación push si está habilitada
-    if (sendPush && userPrefs.push) {
-      await sendPushNotification(userId, {
+    // Crear notificación
+    const notification = await prisma.notification.create({
+      data: {
+        userId,
+        type,
         title,
         message,
         data,
-      })
-    }
+        priority,
+      },
+    })
 
-    // Enviar email si está habilitado
-    if (sendEmail && userPrefs.email) {
-      await sendEmailNotification(userId, {
-        subject: title,
-        message,
-        data,
-      })
-    }
+    // Aquí podrías integrar con servicios de push notifications
+    // await sendPushNotification(userId, { title, message, data })
 
-    return NextResponse.json(notification[0], { status: 201 })
+    return NextResponse.json({ notification }, { status: 201 })
   } catch (error) {
-    console.error("Error al crear notificación:", error)
-    return NextResponse.json({ error: "Error al crear notificación" }, { status: 500 })
+    console.error("Error creando notificación:", error)
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }
 
-// PATCH: Marcar notificaciones como leídas
-export async function PATCH(request: NextRequest) {
+// PUT: Marcar notificaciones como leídas
+export async function PUT(request: NextRequest) {
   try {
-    const user = await getUserFromToken(request)
+    const user = await getUserFromRequest(request)
+
     if (!user) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
     const body = await request.json()
-    const { notificationIds, markAllAsRead = false } = body
+    const { notificationIds = [], markAllAsRead = false } = body
 
-    let query: string
-    let params: any[]
+    let updateResult
 
     if (markAllAsRead) {
-      query = `
-        UPDATE "Notification"
-        SET read = true, "readAt" = NOW(), "updatedAt" = NOW()
-        WHERE "userId" = $1 AND read = false
-        RETURNING id
-      `
-      params = [user.id]
-    } else if (notificationIds && Array.isArray(notificationIds)) {
-      query = `
-        UPDATE "Notification"
-        SET read = true, "readAt" = NOW(), "updatedAt" = NOW()
-        WHERE "userId" = $1 AND id = ANY($2) AND read = false
-        RETURNING id
-      `
-      params = [user.id, notificationIds]
+      // Marcar todas las notificaciones como leídas
+      updateResult = await prisma.notification.updateMany({
+        where: {
+          userId: user.id,
+          readAt: null,
+        },
+        data: {
+          readAt: new Date(),
+        },
+      })
+    } else if (notificationIds.length > 0) {
+      // Marcar notificaciones específicas como leídas
+      updateResult = await prisma.notification.updateMany({
+        where: {
+          id: { in: notificationIds },
+          userId: user.id,
+          readAt: null,
+        },
+        data: {
+          readAt: new Date(),
+        },
+      })
     } else {
-      return NextResponse.json({ error: "Se requiere notificationIds o markAllAsRead" }, { status: 400 })
+      return NextResponse.json({ error: "No se especificaron notificaciones" }, { status: 400 })
     }
 
-    const updatedNotifications = await db.executeQuery(query, params)
-
     return NextResponse.json({
-      success: true,
-      updatedCount: updatedNotifications.length,
+      message: "Notificaciones marcadas como leídas",
+      updatedCount: updateResult.count,
     })
   } catch (error) {
-    console.error("Error al marcar notificaciones como leídas:", error)
-    return NextResponse.json({ error: "Error al marcar notificaciones como leídas" }, { status: 500 })
+    console.error("Error marcando notificaciones:", error)
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }

@@ -1,330 +1,567 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, Edit, Trash, DollarSign, Clock } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { Plus, Edit, Trash2, Eye, EyeOff } from "lucide-react"
 
-/**
- * Componente de gestión de servicios para proveedores
- *
- * Permite al proveedor añadir, editar y eliminar los servicios que ofrece
- */
-export function ProviderServices({ providerId }: { providerId: string }) {
-  const [services, setServices] = useState([
-    {
-      id: "1",
-      name: "Instalación eléctrica residencial",
-      description:
-        "Instalación completa o parcial de sistemas eléctricos en hogares, incluyendo cableado, tomacorrientes, iluminación y tableros.",
-      price: 8500,
-      priceType: "hourly",
-      category: "Electricidad",
-      active: true,
-    },
-    {
-      id: "2",
-      name: "Reparación de cortocircuitos",
-      description:
-        "Diagnóstico y reparación de problemas eléctricos, cortocircuitos, sobrecargas y fallos en el sistema.",
-      price: 5000,
-      priceType: "fixed",
-      category: "Electricidad",
-      active: true,
-    },
-    {
-      id: "3",
-      name: "Instalación de luminarias",
-      description: "Instalación de todo tipo de luminarias: plafones, apliques, spots, colgantes y sistemas LED.",
-      price: 3500,
-      priceType: "fixed",
-      category: "Electricidad",
-      active: false,
-    },
-  ])
+interface ServiceType {
+  id: string
+  name: string
+  icon: string
+}
 
-  const [newService, setNewService] = useState({
+interface ProviderService {
+  id: string
+  name: string
+  description: string
+  price: number
+  priceType: "FIXED" | "HOURLY" | "NEGOTIABLE"
+  duration?: number
+  subcategory?: string
+  tags: string[]
+  requirements?: string
+  images: string[]
+  isActive: boolean
+  serviceType: ServiceType
+  createdAt: string
+  updatedAt: string
+}
+
+interface CreateServiceData {
+  name: string
+  description: string
+  serviceTypeId: string
+  price: number
+  priceType: "FIXED" | "HOURLY" | "NEGOTIABLE"
+  duration?: number
+  subcategory?: string
+  tags: string[]
+  requirements?: string
+}
+
+export default function ProviderServices() {
+  const [services, setServices] = useState<ProviderService[]>([])
+  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [editingService, setEditingService] = useState<ProviderService | null>(null)
+  const [formData, setFormData] = useState<CreateServiceData>({
     name: "",
     description: "",
-    price: "",
-    priceType: "hourly",
-    category: "Electricidad",
-    active: true,
+    serviceTypeId: "",
+    price: 0,
+    priceType: "FIXED",
+    duration: undefined,
+    subcategory: "",
+    tags: [],
+    requirements: "",
   })
+  const [tagsInput, setTagsInput] = useState("")
+  const { toast } = useToast()
 
-  const [editingService, setEditingService] = useState<any>(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  useEffect(() => {
+    fetchServices()
+    fetchServiceTypes()
+  }, [])
 
-  const handleAddService = () => {
-    if (!newService.name || !newService.description || !newService.price) {
+  const fetchServices = async () => {
+    try {
+      const response = await fetch("/api/provider/services")
+      if (response.ok) {
+        const data = await response.json()
+        setServices(data.services)
+      } else {
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los servicios",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching services:", error)
+      toast({
+        title: "Error",
+        description: "Error de conexión",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchServiceTypes = async () => {
+    try {
+      const response = await fetch("/api/services")
+      if (response.ok) {
+        const data = await response.json()
+        setServiceTypes(data)
+      }
+    } catch (error) {
+      console.error("Error fetching service types:", error)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!formData.name || !formData.description || !formData.serviceTypeId || !formData.price) {
+      toast({
+        title: "Error",
+        description: "Por favor completa todos los campos requeridos",
+        variant: "destructive",
+      })
       return
     }
 
-    setServices([
-      ...services,
-      {
-        id: Date.now().toString(),
-        name: newService.name,
-        description: newService.description,
-        price: Number.parseFloat(newService.price),
-        priceType: newService.priceType,
-        category: newService.category,
-        active: newService.active,
-      },
-    ])
+    try {
+      const url = editingService ? `/api/provider/services/${editingService.id}` : "/api/provider/services"
 
-    setNewService({
+      const method = editingService ? "PUT" : "POST"
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...formData,
+          tags: tagsInput
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+        }),
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Éxito",
+          description: editingService ? "Servicio actualizado correctamente" : "Servicio creado correctamente",
+        })
+
+        setIsCreateDialogOpen(false)
+        setEditingService(null)
+        resetForm()
+        fetchServices()
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Error al guardar el servicio",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error saving service:", error)
+      toast({
+        title: "Error",
+        description: "Error de conexión",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDelete = async (serviceId: string) => {
+    if (!confirm("¿Estás seguro de que quieres eliminar este servicio?")) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/provider/services/${serviceId}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Éxito",
+          description: "Servicio eliminado correctamente",
+        })
+        fetchServices()
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Error al eliminar el servicio",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error deleting service:", error)
+      toast({
+        title: "Error",
+        description: "Error de conexión",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleToggleStatus = async (service: ProviderService) => {
+    try {
+      const response = await fetch(`/api/provider/services/${service.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          isActive: !service.isActive,
+        }),
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Éxito",
+          description: `Servicio ${!service.isActive ? "activado" : "desactivado"} correctamente`,
+        })
+        fetchServices()
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Error al cambiar el estado del servicio",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error toggling service status:", error)
+      toast({
+        title: "Error",
+        description: "Error de conexión",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleEdit = (service: ProviderService) => {
+    setEditingService(service)
+    setFormData({
+      name: service.name,
+      description: service.description,
+      serviceTypeId: service.serviceType.id,
+      price: service.price,
+      priceType: service.priceType,
+      duration: service.duration,
+      subcategory: service.subcategory || "",
+      tags: service.tags,
+      requirements: service.requirements || "",
+    })
+    setTagsInput(service.tags.join(", "))
+    setIsCreateDialogOpen(true)
+  }
+
+  const resetForm = () => {
+    setFormData({
       name: "",
       description: "",
-      price: "",
-      priceType: "hourly",
-      category: "Electricidad",
-      active: true,
+      serviceTypeId: "",
+      price: 0,
+      priceType: "FIXED",
+      duration: undefined,
+      subcategory: "",
+      tags: [],
+      requirements: "",
     })
-
-    setIsDialogOpen(false)
-  }
-
-  const handleEditService = () => {
-    if (!editingService) return
-
-    setServices(services.map((service) => (service.id === editingService.id ? editingService : service)))
-
+    setTagsInput("")
     setEditingService(null)
-    setIsDialogOpen(false)
   }
 
-  const handleDeleteService = (id: string) => {
-    setServices(services.filter((service) => service.id !== id))
+  const formatPrice = (price: number, priceType: string) => {
+    const formattedPrice = new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: "ARS",
+    }).format(price)
+
+    switch (priceType) {
+      case "HOURLY":
+        return `${formattedPrice}/hora`
+      case "NEGOTIABLE":
+        return `Desde ${formattedPrice}`
+      default:
+        return formattedPrice
+    }
   }
 
-  const handleToggleActive = (id: string) => {
-    setServices(services.map((service) => (service.id === id ? { ...service, active: !service.active } : service)))
-  }
-
-  const openEditDialog = (service: any) => {
-    setEditingService(service)
-    setIsDialogOpen(true)
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p>Cargando servicios...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <>
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-semibold">Mis Servicios</h2>
-          <p className="text-gray-500">Gestiona los servicios que ofreces a tus clientes</p>
+          <h2 className="text-2xl font-bold">Mis Servicios</h2>
+          <p className="text-gray-600">Gestiona los servicios que ofreces</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={resetForm}>
               <Plus className="h-4 w-4 mr-2" />
-              Añadir Servicio
+              Nuevo Servicio
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editingService ? "Editar Servicio" : "Añadir Nuevo Servicio"}</DialogTitle>
+              <DialogTitle>{editingService ? "Editar Servicio" : "Crear Nuevo Servicio"}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nombre del servicio</Label>
-                <Input
-                  id="name"
-                  value={editingService ? editingService.name : newService.name}
-                  onChange={(e) =>
-                    editingService
-                      ? setEditingService({ ...editingService, name: e.target.value })
-                      : setNewService({ ...newService, name: e.target.value })
-                  }
-                />
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nombre del Servicio *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Ej: Instalación de grifería"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="serviceType">Categoría *</Label>
+                  <Select
+                    value={formData.serviceTypeId}
+                    onValueChange={(value) => setFormData({ ...formData, serviceTypeId: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona una categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {serviceTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.id}>
+                          {type.icon} {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Descripción</Label>
+                <Label htmlFor="description">Descripción *</Label>
                 <Textarea
                   id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Describe detalladamente el servicio que ofreces..."
                   rows={3}
-                  value={editingService ? editingService.description : newService.description}
-                  onChange={(e) =>
-                    editingService
-                      ? setEditingService({ ...editingService, description: e.target.value })
-                      : setNewService({ ...newService, description: e.target.value })
-                  }
+                  required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Precio</Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-                    <Input
-                      id="price"
-                      type="number"
-                      className="pl-8"
-                      value={editingService ? editingService.price : newService.price}
-                      onChange={(e) =>
-                        editingService
-                          ? setEditingService({ ...editingService, price: e.target.value })
-                          : setNewService({ ...newService, price: e.target.value })
-                      }
-                    />
-                  </div>
+                  <Label htmlFor="price">Precio *</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: Number.parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                    required
+                  />
                 </div>
-
                 <div className="space-y-2">
-                  <Label htmlFor="priceType">Tipo de precio</Label>
-                  <select
-                    id="priceType"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={editingService ? editingService.priceType : newService.priceType}
-                    onChange={(e) =>
-                      editingService
-                        ? setEditingService({ ...editingService, priceType: e.target.value })
-                        : setNewService({ ...newService, priceType: e.target.value })
+                  <Label htmlFor="priceType">Tipo de Precio</Label>
+                  <Select
+                    value={formData.priceType}
+                    onValueChange={(value: "FIXED" | "HOURLY" | "NEGOTIABLE") =>
+                      setFormData({ ...formData, priceType: value })
                     }
                   >
-                    <option value="hourly">Por hora</option>
-                    <option value="fixed">Precio fijo</option>
-                    <option value="negotiable">Negociable</option>
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FIXED">Precio Fijo</SelectItem>
+                      <SelectItem value="HOURLY">Por Hora</SelectItem>
+                      <SelectItem value="NEGOTIABLE">Negociable</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="duration">Duración (minutos)</Label>
+                  <Input
+                    id="duration"
+                    type="number"
+                    min="0"
+                    value={formData.duration || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        duration: e.target.value ? Number.parseInt(e.target.value) : undefined,
+                      })
+                    }
+                    placeholder="60"
+                  />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="category">Categoría</Label>
-                <select
-                  id="category"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  value={editingService ? editingService.category : newService.category}
-                  onChange={(e) =>
-                    editingService
-                      ? setEditingService({ ...editingService, category: e.target.value })
-                      : setNewService({ ...newService, category: e.target.value })
-                  }
-                >
-                  <option value="Electricidad">Electricidad</option>
-                  <option value="Plomería">Plomería</option>
-                  <option value="Carpintería">Carpintería</option>
-                  <option value="Pintura">Pintura</option>
-                  <option value="Albañilería">Albañilería</option>
-                  <option value="Jardinería">Jardinería</option>
-                  <option value="Limpieza">Limpieza</option>
-                </select>
+                <Label htmlFor="subcategory">Subcategoría</Label>
+                <Input
+                  id="subcategory"
+                  value={formData.subcategory}
+                  onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
+                  placeholder="Ej: Grifería, Desagües, etc."
+                />
               </div>
 
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="active"
-                  checked={editingService ? editingService.active : newService.active}
-                  onCheckedChange={(checked) =>
-                    editingService
-                      ? setEditingService({ ...editingService, active: checked })
-                      : setNewService({ ...newService, active: checked })
-                  }
+              <div className="space-y-2">
+                <Label htmlFor="tags">Etiquetas</Label>
+                <Input
+                  id="tags"
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  placeholder="Ej: urgente, fin de semana, garantía (separadas por comas)"
                 />
-                <Label htmlFor="active">Servicio activo</Label>
+                <p className="text-sm text-gray-500">Separa las etiquetas con comas</p>
               </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={editingService ? handleEditService : handleAddService}>
-                {editingService ? "Guardar Cambios" : "Añadir Servicio"}
-              </Button>
-            </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="requirements">Requisitos Especiales</Label>
+                <Textarea
+                  id="requirements"
+                  value={formData.requirements}
+                  onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
+                  placeholder="Ej: Acceso a herramientas, materiales incluidos, etc."
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsCreateDialogOpen(false)
+                    resetForm()
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit">{editingService ? "Actualizar" : "Crear"} Servicio</Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {services.map((service) => (
-          <Card key={service.id} className={`${!service.active ? "opacity-70" : ""}`}>
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">{service.name}</CardTitle>
-                  <CardDescription>{service.category}</CardDescription>
+      {services.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-gray-500 mb-4">No tienes servicios creados aún</p>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Crear tu primer servicio
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {services.map((service) => (
+            <Card key={service.id} className={`${!service.isActive ? "opacity-60" : ""}`}>
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <CardTitle className="text-lg">{service.name}</CardTitle>
+                    <p className="text-sm text-gray-600 flex items-center mt-1">
+                      <span className="mr-2">{service.serviceType.icon}</span>
+                      {service.serviceType.name}
+                      {service.subcategory && ` • ${service.subcategory}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleToggleStatus(service)}
+                      title={service.isActive ? "Desactivar" : "Activar"}
+                    >
+                      {service.isActive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-blue-600"
-                    onClick={() => openEditDialog(service)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-red-600"
-                    onClick={() => handleDeleteService(service.id)}
-                  >
-                    <Trash className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 text-sm mb-4">{service.description}</p>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600 mb-3 line-clamp-2">{service.description}</p>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center">
-                    <DollarSign className="h-4 w-4 text-gray-500 mr-1" />
-                    <span className="font-medium">${service.price.toLocaleString()}</span>
-                    <span className="text-gray-500 text-sm ml-1">
-                      {service.priceType === "hourly" ? "/hora" : service.priceType === "fixed" ? "fijo" : "negociable"}
-                    </span>
+                <div className="space-y-2 mb-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Precio:</span>
+                    <span className="font-bold text-green-600">{formatPrice(service.price, service.priceType)}</span>
                   </div>
 
-                  {service.priceType === "hourly" && (
-                    <div className="flex items-center">
-                      <Clock className="h-4 w-4 text-gray-500 mr-1" />
-                      <span className="text-sm text-gray-600">Mín. 2 horas</span>
+                  {service.duration && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Duración:</span>
+                      <span className="text-sm">
+                        {service.duration < 60
+                          ? `${service.duration} min`
+                          : `${Math.floor(service.duration / 60)}h ${service.duration % 60}min`}
+                      </span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id={`active-${service.id}`}
-                    checked={service.active}
-                    onCheckedChange={() => handleToggleActive(service.id)}
-                  />
-                  <Label htmlFor={`active-${service.id}`} className="text-sm">
-                    {service.active ? "Activo" : "Inactivo"}
-                  </Label>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                {service.tags.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex flex-wrap gap-1">
+                      {service.tags.slice(0, 3).map((tag, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                      {service.tags.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{service.tags.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
 
-      {services.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center p-12">
-            <p className="text-gray-500 mb-4">No has añadido ningún servicio todavía</p>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Añadir Primer Servicio
-                </Button>
-              </DialogTrigger>
-              <DialogContent>{/* Contenido del diálogo (igual que arriba) */}</DialogContent>
-            </Dialog>
-          </CardContent>
-        </Card>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-2">
+                    <Switch checked={service.isActive} onCheckedChange={() => handleToggleStatus(service)} />
+                    <span className="text-sm">{service.isActive ? "Activo" : "Inactivo"}</span>
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="sm" onClick={() => handleEdit(service)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(service.id)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
-    </>
+    </div>
   )
 }

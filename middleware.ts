@@ -1,14 +1,19 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { updateSession } from "@/lib/supabase/middleware"
+import type { NextRequest } from "next/server"
 
-/**
- * Middleware básico: simplemente continúa la solicitud.
- * Úsalo como punto de partida para futuras reglas.
- */
-export function middleware(_req: NextRequest) {
-  return NextResponse.next()
+export async function middleware(request: NextRequest) {
+  return await updateSession(request)
 }
 
 export const config = {
-  // Evita procesar archivos estáticos, imágenes optimizadas y favicon
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public (public files)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 }

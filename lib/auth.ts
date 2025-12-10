@@ -1,189 +1,108 @@
+import jwt from "jsonwebtoken"
+import { cookies } from "next/headers"
 import type { NextRequest } from "next/server"
-import type { cookies } from "next/headers"
-import { sql } from "./db"
-import { jwtVerify } from "jose"
+import { PrismaClient } from "@prisma/client"
 
-// Nueva función verifyToken que falta para el despliegue
-export async function verifyToken(token: string) {
-  if (!token) {
-    return null
-  }
+const prisma = new PrismaClient()
 
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
+
+export interface JWTPayload {
+  userId: string
+  email: string
+  name: string
+  iat?: number
+  exp?: number
+}
+
+export interface User {
+  id: string
+  name: string
+  email: string
+  phone?: string
+  address?: string
+  image?: string
+}
+
+export async function signToken(payload: Omit<JWTPayload, "iat" | "exp">): Promise<string> {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" })
+}
+
+export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || "demo_secret_key_for_preview_environment")
-    const { payload } = await jwtVerify(token, secret)
-    return payload
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload
+    return decoded
   } catch (error) {
-    console.error("Error al verificar token:", error)
+    console.error("Error verifying token:", error)
     return null
   }
 }
 
-// Función para obtener el usuario a partir del token JWT
-export async function getUserFromToken(request: NextRequest | Request) {
-  let token: string | undefined
-
-  // Manejar tanto NextRequest como Request estándar
-  if ("cookies" in request && typeof request.cookies.get === "function") {
-    // Es un NextRequest
-    token = request.cookies.get("token")?.value
-    console.log("getUserFromToken: Token obtenido de NextRequest", !!token)
-  } else {
-    // Es un Request estándar
-    const cookieHeader = request.headers.get("cookie")
-    if (cookieHeader) {
-      const cookies = cookieHeader.split(";").reduce(
-        (acc, cookie) => {
-          const [key, value] = cookie.trim().split("=")
-          acc[key] = value
-          return acc
-        },
-        {} as Record<string, string>,
-      )
-
-      token = cookies["token"]
-      console.log("getUserFromToken: Token obtenido de Request estándar", !!token)
-    }
-  }
-
-  if (!token) {
-    console.log("getUserFromToken: No se encontró token")
-    return null
-  }
-
+export async function getUserFromToken(token: string): Promise<User | null> {
   try {
-    // Usar jose en lugar de jsonwebtoken
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || "demo_secret_key_for_preview_environment")
-    const { payload } = await jwtVerify(token, secret)
+    const payload = await verifyToken(token)
+    if (!payload) return null
 
-    console.log("getUserFromToken: Token verificado para usuario", payload.id)
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+        image: true,
+      },
+    })
 
-    // En modo de demostración, podemos devolver un usuario de demostración
-    if (process.env.DEMO_MODE === "true" || process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      console.log("getUserFromToken: Usando modo de demostración")
-
-      // Si es un proveedor en modo demo
-      if (payload.isProvider === true) {
-        return {
-          id: payload.id || "provider-123",
-          name: payload.name || "Proveedor Demo",
-          email: payload.email || "proveedor@test.com",
-          image: "/placeholder.svg?height=40&width=40",
-          providerProfile: {
-            id: "provider-profile-123",
-            userId: payload.id || "provider-123",
-            serviceTypeId: "service-type-123",
-            rating: 4.5,
-            reviewCount: 27,
-            isAvailable: true,
-          },
-        }
-      }
-
-      // Usuario normal en modo demo
-      return {
-        id: payload.id || "user-123",
-        name: payload.name || "Usuario Demo",
-        email: payload.email || "usuario@test.com",
-        image: "/placeholder.svg?height=40&width=40",
-        providerProfile: null,
-      }
-    }
-
-    const users = await sql`
-      SELECT 
-        u.id, 
-        u.name, 
-        u.email, 
-        u.image,
-        u.phone,
-        (SELECT json_build_object(
-          'id', p.id,
-          'userId', p."userId",
-          'serviceTypeId', p."serviceTypeId",
-          'rating', p.rating,
-          'reviewCount', p."reviewCount",
-          'isAvailable', p."isAvailable"
-        ) FROM "Provider" p WHERE p."userId" = u.id) as "providerProfile"
-      FROM "User" u
-      WHERE u.id = ${payload.id}
-      LIMIT 1
-    `
-
-    if (users.length === 0) {
-      console.log("getUserFromToken: Usuario no encontrado en la base de datos")
-      return null
-    }
-
-    console.log("getUserFromToken: Usuario encontrado en la base de datos", users[0].name)
-    return users[0]
+    return user
   } catch (error) {
-    console.error("Error al obtener usuario del token:", error)
+    console.error("Error getting user from token:", error)
     return null
   }
 }
 
-// Función para obtener el usuario a partir de una cookie
-export async function getUserFromCookie(cookieStore: ReturnType<typeof cookies>) {
-  const token = cookieStore.get("token")?.value
-
-  if (!token) {
-    return null
-  }
-
+export async function getUserFromRequest(request: NextRequest): Promise<User | null> {
   try {
-    // Usar jose en lugar de jsonwebtoken
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || "secret")
-    const { payload } = await jwtVerify(token, secret)
+    const token = request.cookies.get("auth-token")?.value
+    if (!token) return null
 
-    // En modo de demostración, podemos devolver un usuario de demostración
-    if (process.env.DEMO_MODE === "true") {
-      return {
-        id: payload.id || "provider-123",
-        name: "Proveedor Demo",
-        email: "proveedor@test.com",
-        image: "/placeholder.svg?height=40&width=40",
-        providerProfile: {
-          id: "provider-profile-123",
-          userId: "provider-123",
-          serviceTypeId: "service-type-123",
-          rating: 4.5,
-          reviewCount: 27,
-          isAvailable: true,
-        },
-      }
-    }
-
-    const users = await sql`
-      SELECT 
-        u.id, 
-        u.name, 
-        u.email, 
-        u.image,
-        u.phone,
-        (SELECT json_build_object(
-          'id', p.id,
-          'userId', p."userId",
-          'serviceTypeId', p."serviceTypeId",
-          'rating', p.rating,
-          'reviewCount', p."reviewCount",
-          'isAvailable', p."isAvailable"
-        ) FROM "Provider" p WHERE p."userId" = u.id) as "providerProfile"
-      FROM "User" u
-      WHERE u.id = ${payload.id}
-      LIMIT 1
-    `
-
-    if (users.length === 0) {
-      return null
-    }
-
-    return users[0]
+    return await getUserFromToken(token)
   } catch (error) {
-    console.error("Error al obtener usuario de la cookie:", error)
+    console.error("Error getting user from request:", error)
     return null
   }
 }
 
-// Alias de getUserFromToken para mantener compatibilidad
-export const getUserFromRequest = getUserFromToken
+export async function getUserFromCookies(): Promise<User | null> {
+  try {
+    const cookieStore = cookies()
+    const token = cookieStore.get("auth-token")?.value
+    if (!token) return null
+
+    return await getUserFromToken(token)
+  } catch (error) {
+    console.error("Error getting user from cookies:", error)
+    return null
+  }
+}
+
+export const getUserFromCookie = getUserFromCookies
+
+export async function requireAuth(request: NextRequest): Promise<User> {
+  const user = await getUserFromRequest(request)
+  if (!user) {
+    throw new Error("Authentication required")
+  }
+  return user
+}
+
+export async function createSession(user: User): Promise<string> {
+  const payload: Omit<JWTPayload, "iat" | "exp"> = {
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+  }
+
+  return await signToken(payload)
+}

@@ -1,364 +1,197 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import { PrismaClient } from "@prisma/client"
 import { getUserFromRequest } from "@/lib/auth"
+
+const prisma = new PrismaClient()
 
 export const dynamic = "force-dynamic"
 
-/**
- * GET /api/providers
- *
- * Obtiene una lista de proveedores de servicios
- *
- * Opcionalmente acepta parámetros de consulta para filtros:
- * - category: ID de la categoría
- * - service: ID del servicio
- * - query: Texto para buscar en nombre/descripción
- * - rating: Calificación mínima
- * - limit: Cantidad máxima de resultados
- * - offset: Índice para paginación
- */
+// GET: Obtener proveedores
 export async function GET(request: NextRequest) {
   try {
-    // Obtener parámetros de consulta
-    const searchParams = request.nextUrl.searchParams
-    const category = searchParams.get("category")
-    const service = searchParams.get("service")
-    const query = searchParams.get("query")
-    const rating = searchParams.get("rating") ? Number.parseFloat(searchParams.get("rating")!) : null
-    const limit = searchParams.get("limit") ? Number.parseInt(searchParams.get("limit")!) : 20
-    const offset = searchParams.get("offset") ? Number.parseInt(searchParams.get("offset")!) : 0
+    const url = new URL(request.url)
+    const page = Number.parseInt(url.searchParams.get("page") || "1")
+    const limit = Number.parseInt(url.searchParams.get("limit") || "10")
+    const search = url.searchParams.get("search") || ""
+    const serviceTypeId = url.searchParams.get("serviceTypeId") || ""
+    const minRating = Number.parseFloat(url.searchParams.get("minRating") || "0")
+    const isAvailable = url.searchParams.get("isAvailable")
+    const latitude = url.searchParams.get("latitude")
+    const longitude = url.searchParams.get("longitude")
+    const radius = Number.parseFloat(url.searchParams.get("radius") || "10") // km
 
-    // En modo de demostración, devolver datos de ejemplo
-    if (process.env.DEMO_MODE === "true") {
-      // Devolver proveedores de ejemplo con un pequeño retraso para simular
-      await new Promise((resolve) => setTimeout(resolve, 500))
+    const skip = (page - 1) * limit
 
-      const mockProviders = Array.from({ length: 12 }, (_, i) => ({
-        id: `provider-${i + 1}`,
-        userId: `user-${i + 1}`,
-        name: [
-          "Carlos Martínez",
-          "Laura Rodríguez",
-          "Juan Pérez",
-          "Ana Gómez",
-          "Pedro Sánchez",
-          "Lucía Fernández",
-          "Miguel Torres",
-          "Sofía López",
-          "Diego González",
-          "Valentina Díaz",
-          "Javier Ruiz",
-          "Camila Herrera",
-        ][i],
-        image: `/placeholder.svg?height=64&width=64&text=${encodeURIComponent(
-          ["CM", "LR", "JP", "AG", "PS", "LF", "MT", "SL", "DG", "VD", "JR", "CH"][i],
-        )}`,
-        description: "Profesional con experiencia en diversos servicios del hogar y oficina",
-        categories: [
-          ["Electricidad", "Plomería"],
-          ["Carpintería", "Pintura"],
-          ["Limpieza", "Jardinería"],
-          ["Electricidad", "Climatización"],
-          ["Albañilería", "Pintura"],
-          ["Limpieza", "Cuidado del hogar"],
-          ["Plomería", "Gas"],
-          ["Informática", "Electrónica"],
-          ["Carpintería", "Albañilería"],
-          ["Diseño", "Decoración"],
-          ["Electricidad", "Electrónica"],
-          ["Jardinería", "Paisajismo"],
-        ][i],
-        rating: 4 + (i % 10) / 10,
-        reviewCount: 10 + i * 3,
-        verified: i % 3 === 0,
-        location: {
-          latitude: -34.603722 + (Math.random() * 0.1 - 0.05),
-          longitude: -58.381592 + (Math.random() * 0.1 - 0.05),
-          address: `Calle Principal ${100 + i * 11}, CABA`,
-        },
-        services: [
-          {
-            id: `service-${i * 2 + 1}`,
-            name: "Instalación completa",
-            price: 5000 + i * 500,
-            category: ["Electricidad", "Plomería", "Carpintería"][i % 3],
-          },
-          {
-            id: `service-${i * 2 + 2}`,
-            name: "Reparación",
-            price: 2500 + i * 250,
-            category: ["Electricidad", "Plomería", "Carpintería"][i % 3],
-          },
-        ],
-        availability: {
-          immediate: i % 2 === 0,
-          nextAvailable: i % 2 === 0 ? null : new Date(Date.now() + 24 * 60 * 60 * 1000 * (1 + (i % 3))).toISOString(),
-        },
-      }))
+    // Construir filtros
+    const where: any = {}
 
-      // Aplicar filtros simulados
-      let filteredProviders = mockProviders
-
-      if (category) {
-        filteredProviders = filteredProviders.filter((p) =>
-          p.categories.some((c) => c.toLowerCase() === category.toLowerCase()),
-        )
-      }
-
-      if (query) {
-        const searchQuery = query.toLowerCase()
-        filteredProviders = filteredProviders.filter(
-          (p) =>
-            p.name.toLowerCase().includes(searchQuery) ||
-            p.description.toLowerCase().includes(searchQuery) ||
-            p.categories.some((c) => c.toLowerCase().includes(searchQuery)),
-        )
-      }
-
-      if (rating) {
-        filteredProviders = filteredProviders.filter((p) => p.rating >= rating)
-      }
-
-      // Paginación
-      const paginatedProviders = filteredProviders.slice(offset, offset + limit)
-
-      return NextResponse.json({
-        providers: paginatedProviders,
-        total: filteredProviders.length,
-        currentPage: Math.floor(offset / limit) + 1,
-        totalPages: Math.ceil(filteredProviders.length / limit),
-      })
-    }
-
-    // Implementación real con base de datos
-    const whereClause: any = {}
-
-    if (category) {
-      whereClause.categories = {
-        some: {
-          id: category,
-        },
-      }
-    }
-
-    if (service) {
-      whereClause.services = {
-        some: {
-          id: service,
-        },
-      }
-    }
-
-    if (rating) {
-      whereClause.rating = {
-        gte: rating,
-      }
-    }
-
-    // Búsqueda por texto
-    if (query) {
-      whereClause.OR = [
-        {
-          user: {
-            name: {
-              contains: query,
-              mode: "insensitive",
-            },
-          },
-        },
-        {
-          description: {
-            contains: query,
-            mode: "insensitive",
-          },
-        },
+    if (search) {
+      where.OR = [
+        { user: { name: { contains: search, mode: "insensitive" } } },
+        { bio: { contains: search, mode: "insensitive" } },
+        { serviceType: { name: { contains: search, mode: "insensitive" } } },
       ]
     }
 
-    // Obtener total sin paginación
-    const total = await db.providerProfile.count({
-      where: whereClause,
+    if (serviceTypeId) {
+      where.serviceTypeId = serviceTypeId
+    }
+
+    if (minRating > 0) {
+      where.rating = { gte: minRating }
+    }
+
+    if (isAvailable !== null) {
+      where.isAvailable = isAvailable === "true"
+    }
+
+    // Obtener proveedores
+    const [providers, total] = await Promise.all([
+      prisma.provider.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              image: true,
+            },
+          },
+          serviceType: {
+            select: {
+              id: true,
+              name: true,
+              icon: true,
+              description: true,
+            },
+          },
+          services: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              price: true,
+              priceType: true,
+              duration: true,
+              tags: true,
+            },
+            where: { isActive: true },
+            take: 3, // Solo mostrar los primeros 3 servicios
+          },
+          _count: {
+            select: {
+              services: true,
+            },
+          },
+        },
+        skip,
+        take: limit,
+        orderBy: [{ rating: "desc" }, { reviewCount: "desc" }, { createdAt: "desc" }],
+      }),
+      prisma.provider.count({ where }),
+    ])
+
+    // Si se proporcionan coordenadas, calcular distancia
+    let providersWithDistance = providers
+    if (latitude && longitude) {
+      // Aquí podrías implementar cálculo de distancia real
+      // Por ahora, simulamos distancias aleatorias
+      providersWithDistance = providers.map((provider) => ({
+        ...provider,
+        distance: Math.round(Math.random() * radius * 100) / 100, // Distancia simulada
+      }))
+
+      // Ordenar por distancia si se especifica ubicación
+      providersWithDistance.sort((a, b) => (a.distance || 0) - (b.distance || 0))
+    }
+
+    return NextResponse.json({
+      providers: providersWithDistance,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    })
+  } catch (error) {
+    console.error("Error obteniendo proveedores:", error)
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+  }
+}
+
+// POST: Crear perfil de proveedor
+export async function POST(request: NextRequest) {
+  try {
+    const user = await getUserFromRequest(request)
+
+    if (!user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    // Verificar si ya tiene perfil de proveedor
+    const existingProvider = await prisma.provider.findUnique({
+      where: { userId: user.id },
     })
 
-    // Obtener proveedores con paginación
-    const providers = await db.providerProfile.findMany({
-      where: whereClause,
+    if (existingProvider) {
+      return NextResponse.json({ error: "Ya tienes un perfil de proveedor" }, { status: 400 })
+    }
+
+    const body = await request.json()
+    const { bio, serviceTypeId, price } = body
+
+    // Validaciones
+    if (!serviceTypeId) {
+      return NextResponse.json({ error: "Tipo de servicio es requerido" }, { status: 400 })
+    }
+
+    // Verificar que el tipo de servicio existe
+    const serviceType = await prisma.serviceType.findUnique({
+      where: { id: serviceTypeId },
+    })
+
+    if (!serviceType) {
+      return NextResponse.json({ error: "Tipo de servicio no válido" }, { status: 400 })
+    }
+
+    // Crear perfil de proveedor
+    const provider = await prisma.provider.create({
+      data: {
+        userId: user.id,
+        bio: bio || null,
+        serviceTypeId,
+        price: price || "$",
+        rating: 0,
+        reviewCount: 0,
+        isAvailable: true,
+      },
       include: {
         user: {
           select: {
             id: true,
             name: true,
             email: true,
+            phone: true,
             image: true,
           },
         },
-        services: {
+        serviceType: {
           select: {
             id: true,
             name: true,
+            icon: true,
             description: true,
-            price: true,
-            category: true,
-            active: true,
           },
         },
-        categories: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        location: {
-          select: {
-            address: true,
-            latitude: true,
-            longitude: true,
-          },
-        },
-      },
-      take: limit,
-      skip: offset,
-      orderBy: {
-        rating: "desc",
       },
     })
 
-    // Formatear la respuesta
-    const formattedProviders = providers.map((provider) => ({
-      id: provider.id,
-      userId: provider.userId,
-      name: provider.user.name,
-      email: provider.user.email,
-      image: provider.user.image,
-      description: provider.description,
-      categories: provider.categories.map((c) => c.name),
-      rating: provider.rating,
-      reviewCount: provider.reviewCount,
-      verified: provider.verified,
-      location: provider.location,
-      services: provider.services.filter((s) => s.active),
-      availability: {
-        immediate: provider.immediateAvailability,
-        nextAvailable: provider.nextAvailableDate,
-      },
-    }))
-
-    return NextResponse.json({
-      providers: formattedProviders,
-      total,
-      currentPage: Math.floor(offset / limit) + 1,
-      totalPages: Math.ceil(total / limit),
-    })
+    return NextResponse.json({ provider }, { status: 201 })
   } catch (error) {
-    console.error("Error en /api/providers:", error)
-    return NextResponse.json(
-      { error: "Error al obtener proveedores", details: error instanceof Error ? error.message : String(error) },
-      { status: 500 },
-    )
-  }
-}
-
-/**
- * POST /api/providers
- *
- * Crea o actualiza un perfil de proveedor para el usuario autenticado
- */
-export async function POST(request: NextRequest) {
-  try {
-    const user = await getUserFromRequest(request)
-
-    if (!user) {
-      return NextResponse.json({ error: "Acceso no autorizado" }, { status: 401 })
-    }
-
-    const data = await request.json()
-
-    // Verificar si el usuario ya tiene un perfil de proveedor
-    let providerProfile = await db.providerProfile.findUnique({
-      where: { userId: user.id },
-    })
-
-    // Crear o actualizar el perfil
-    if (providerProfile) {
-      // Actualizar perfil existente
-      providerProfile = await db.providerProfile.update({
-        where: { id: providerProfile.id },
-        data: {
-          description: data.description,
-          title: data.title,
-          phone: data.phone,
-          verified: data.verified || false,
-          immediateAvailability: data.immediateAvailability || false,
-          nextAvailableDate: data.nextAvailableDate,
-          // Otros campos que se puedan actualizar
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              image: true,
-            },
-          },
-        },
-      })
-    } else {
-      // Crear nuevo perfil
-      providerProfile = await db.providerProfile.create({
-        data: {
-          userId: user.id,
-          description: data.description || "",
-          title: data.title || "",
-          phone: data.phone || "",
-          rating: 0,
-          reviewCount: 0,
-          verified: false,
-          immediateAvailability: data.immediateAvailability || false,
-          nextAvailableDate: data.nextAvailableDate,
-          // Otros campos necesarios
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              image: true,
-            },
-          },
-        },
-      })
-    }
-
-    return NextResponse.json({
-      success: true,
-      providerProfile: {
-        id: providerProfile.id,
-        userId: providerProfile.userId,
-        name: providerProfile.user.name,
-        email: providerProfile.user.email,
-        image: providerProfile.user.image,
-        description: providerProfile.description,
-        title: providerProfile.title,
-        phone: providerProfile.phone,
-        rating: providerProfile.rating,
-        reviewCount: providerProfile.reviewCount,
-        verified: providerProfile.verified,
-        availability: {
-          immediate: providerProfile.immediateAvailability,
-          nextAvailable: providerProfile.nextAvailableDate,
-        },
-      },
-    })
-  } catch (error) {
-    console.error("Error en POST /api/providers:", error)
-    return NextResponse.json(
-      {
-        error: "Error al crear/actualizar perfil de proveedor",
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    )
+    console.error("Error creando proveedor:", error)
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }
